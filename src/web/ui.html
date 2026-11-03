@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>刷视频工作台</title>
+<style>
+  :root {
+    --bg:#0f1420; --card:#151c2b; --card2:#182136; --line:#26304a; --ink:#dbe4f5; --dim:#8494b3;
+    --acc:#4f7cff; --acc-soft:rgba(79,124,255,.12); --ok:#3dd68c; --warn:#f0b429; --bad:#f06a6a;
+  }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--ink); font:14px/1.65 "Segoe UI","Microsoft YaHei",sans-serif; }
+  .app { display:grid; grid-template-columns:212px 1fr; min-height:100vh; }
+  .rail { background:#121828; border-right:1px solid var(--line); padding:20px 14px; }
+  .brand { font-size:16px; font-weight:700; margin-bottom:2px; }
+  .brand small { display:block; font-weight:400; color:var(--dim); font-size:11px; }
+  nav { margin-top:18px; display:flex; flex-direction:column; gap:4px; }
+  nav button { text-align:left; background:transparent; border:0; padding:9px 12px; border-radius:9px; font:inherit; color:var(--ink); cursor:pointer; }
+  nav button.on { background:var(--acc); color:#fff; }
+  nav button:not(.on):hover { background:#1c2438; }
+  .railfoot { margin-top:auto; color:var(--dim); font-size:11px; line-height:1.7; padding-top:22px; }
+  main { padding:26px 30px 60px; }
+  h2 { font-size:16px; margin:0 0 14px; }
+  .grid { display:grid; gap:14px; }
+  .cols2 { grid-template-columns:1fr 1fr; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:13px; padding:16px 18px; }
+  .card h3 { font-size:13.5px; margin:0 0 10px; display:flex; align-items:center; gap:8px; }
+  .kv { display:flex; flex-wrap:wrap; gap:6px 16px; font-size:13px; color:var(--dim); }
+  .kv b { color:var(--ink); }
+  .dot { width:9px; height:9px; border-radius:50%; display:inline-block; background:#3a4664; }
+  .dot.ok { background:var(--ok); } .dot.bad { background:var(--bad); } .dot.warn { background:var(--warn); }
+  .pill { display:inline-block; padding:2px 10px; border-radius:999px; font-size:11.5px; background:#1c2438; color:var(--dim); }
+  button.act { background:var(--acc); color:#fff; border:0; border-radius:9px; padding:8px 16px; font:inherit; cursor:pointer; }
+  button.act:disabled { opacity:.5; cursor:default; }
+  button.ghost { background:transparent; color:#aeb9d6; border:1px solid var(--line); border-radius:9px; padding:7px 14px; font:inherit; cursor:pointer; }
+  button.ghost:hover { border-color:var(--acc); color:#fff; }
+  input.wide { width:100%; padding:9px 12px; border:1px solid var(--line); border-radius:9px; font:inherit; margin-bottom:10px; background:#101725; color:var(--ink); }
+  label.lab { display:block; font-size:12px; color:var(--dim); margin:8px 0 4px; }
+  .logbox { background:#0b0f19; border:1px solid var(--line); border-radius:10px; padding:12px; font:11.5px/1.6 Consolas,monospace; color:#9fb0d0; white-space:pre-wrap; word-break:break-all; max-height:420px; overflow:auto; }
+  .tools li { margin-bottom:10px; }
+  .tools code { background:var(--acc-soft); color:#9db8ff; border-radius:6px; padding:1px 7px; font-size:12px; }
+  .toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:#1c2438; border:1px solid var(--acc); color:var(--ink); border-radius:10px; padding:9px 18px; font-size:13px; display:none; z-index:9; }
+  .muted { color:var(--dim); font-size:12px; }
+  .err { color:var(--bad); font-size:12.5px; }
+  a.plink { font-size:12.5px; color:var(--acc); text-decoration:none; border:1px solid var(--acc); border-radius:999px; padding:4px 12px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="rail">
+    <div class="brand">🎬 刷视频工作台<small>snow-video-kit</small></div>
+    <nav>
+      <button data-v="home" class="on">总览</button>
+      <button data-v="panel">综合面板</button>
+      <button data-v="brain">大脑</button>
+      <button data-v="memory">记忆库</button>
+      <button data-v="usage">花费</button>
+      <button data-v="tools">她的工具</button>
+      <button data-v="logs">运行日志</button>
+    </nav>
+    <div class="railfoot">依附 SnowLuma 运行<br>QQ 连接成功 → 工具就绪<br>大脑 = 自填 key（脱离 DSH）</div>
+  </div>
+  <main>
+    <div id="view-panel" class="view" style="display:none">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <h2 style="margin:0">综合面板</h2>
+        <span class="muted">B站/抖音原装全功能面板（扫码登录在里面）。注意：里面的「现在跑一轮」也会走工作台大脑（自填 key）；完整面板功能需要 DSH 正在运行。</span>
+      </div>
+      <iframe id="panel-frame" src="/panel.html" style="width:100%;height:calc(100vh - 150px);border:1px solid var(--line);border-radius:13px;background:#0f1420"></iframe>
+    </div>
+    <div id="view-home" class="view">
+      <h2>总览</h2>
+      <div class="grid cols2">
+        <div class="card">
+          <h3><span class="dot" id="dot-qq"></span>QQ 连接 <span class="pill" id="qq-state">检测中</span></h3>
+          <div class="kv" id="qq-meta"></div>
+          <p class="muted" style="margin-top:8px">QQ 在线时值班轮才放行；掉线自动转入待命。</p>
+        </div>
+        <div class="card">
+          <h3><span class="dot" id="dot-brain"></span>大脑（自填 key） <span class="pill" id="brain-state">检查中</span></h3>
+          <div class="kv" id="brain-meta"></div>
+          <p class="muted" style="margin-top:8px">值班轮的判断与日报全走这里，与 DSH 无关。去「大脑」页填写。</p>
+        </div>
+      </div>
+      <div class="grid cols2" style="margin-top:14px">
+        <div class="card">
+          <h3>📺 刷B站 <span class="pill" id="bili-round">待命</span></h3>
+          <div class="kv" id="bili-meta"></div>
+          <div style="margin-top:12px; display:flex; gap:8px;">
+            <button class="act" id="run-bili">▶ 立即跑一轮</button>
+            <button class="ghost" id="report-bili">📄 最新日报</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>🎵 刷抖音 <span class="pill" id="douyin-round">待命</span></h3>
+          <div class="kv" id="douyin-meta"></div>
+          <div style="margin-top:12px; display:flex; gap:8px;">
+            <button class="act" id="run-douyin">▶ 立即跑一轮</button>
+            <button class="ghost" id="report-douyin">📄 最新日报</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-brain" class="view" style="display:none">
+      <h2>大脑（OpenAI 兼容 · 填 key 即用，脱离 DSH）</h2>
+      <div class="card" style="max-width:640px">
+        <label class="lab">API 地址（baseURL，OpenAI 兼容）</label>
+        <input class="wide" id="brain-url" placeholder="https://api.deepseek.com/v1">
+        <label class="lab">模型</label>
+        <input class="wide" id="brain-model" placeholder="deepseek-chat">
+        <label class="lab">API Key（已保存时留空 = 不修改）</label>
+        <input class="wide" id="brain-key" type="password" placeholder="sk-...">
+        <label class="lab" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="brain-enabled" style="width:auto"> 启用大脑（关闭后值班轮只做采集不判断）
+        </label>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="act" id="brain-save">保存</button>
+          <button class="ghost" id="brain-test">测试连通</button>
+          <span id="brain-result" class="muted" style="align-self:center"></span>
+        </div>
+      </div>
+      <p class="muted" style="margin-top:12px;max-width:640px">key 只保存在本机 state/brain-key，不会回显、不进配置导出。值班轮的多轮工具调用与日报判断都由这个大脑完成。</p>
+    </div>
+
+    <div id="view-usage" class="view" style="display:none">
+      <h2>花费（大脑 token 记账）</h2>
+      <div class="grid cols2">
+        <div class="card"><h3>今日</h3><div class="kv" id="u-today"></div></div>
+        <div class="card"><h3>本月</h3><div class="kv" id="u-month"></div></div>
+        <div class="card"><h3>累计</h3><div class="kv" id="u-total"></div></div>
+        <div class="card"><h3>按任务</h3><div class="kv" id="u-kind"></div></div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>最近 14 天</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+          <thead><tr style="color:var(--dim);text-align:left"><th style="padding:4px 8px">日期</th><th style="padding:4px 8px">调用</th><th style="padding:4px 8px">tokens</th><th style="padding:4px 8px">花费（估算）</th></tr></thead>
+          <tbody id="u-trend"></tbody>
+        </table>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>明细（最近 50 笔）</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="color:var(--dim);text-align:left"><th style="padding:4px 8px">时间</th><th style="padding:4px 8px">任务</th><th style="padding:4px 8px">模型</th><th style="padding:4px 8px">tokens</th><th style="padding:4px 8px">¥</th></tr></thead>
+          <tbody id="u-recent"></tbody>
+        </table>
+      </div>
+      <div class="card" style="margin-top:14px;max-width:640px">
+        <h3>价格表（¥ / 100万 tokens，估算用）</h3>
+        <div id="u-pricing"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="act" id="u-price-save">保存价格表</button>
+          <span class="muted" style="align-self:center">费用 = 按量折算的估算值，价格按你实际的模型计费填。</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-memory" class="view" style="display:none">
+      <h2>记忆库 <span class="muted" style="font-size:12px" id="mem-db"></span></h2>
+      <div class="card" style="margin-bottom:14px">
+        <div class="kv" id="mem-stats"></div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
+          <input class="wide" id="mem-q" placeholder="搜标题/理由/点评…" style="max-width:280px;margin:0">
+          <select id="mem-platform" class="wide" style="max-width:130px;margin:0">
+            <option value="">全部平台</option><option value="bili">B站</option><option value="douyin">抖音</option>
+          </select>
+          <button class="act" id="mem-refresh">查询</button>
+        </div>
+      </div>
+      <div class="card" style="overflow:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px" id="mem-table">
+          <thead><tr style="color:var(--dim);text-align:left">
+            <th style="padding:6px 8px">平台</th><th style="padding:6px 8px">视频</th><th style="padding:6px 8px">标题</th>
+            <th style="padding:6px 8px">档位</th><th style="padding:6px 8px">理由（截断）</th><th style="padding:6px 8px">日期</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <details class="card" style="margin-top:14px">
+        <summary class="muted">只读 SQL 查询（SELECT）</summary>
+        <textarea id="mem-sql" class="wide" rows="3" style="margin-top:8px;font:12px Consolas,monospace">SELECT platform, vid, title, grade, picked_at FROM videos ORDER BY picked_at DESC LIMIT 20</textarea>
+        <button class="ghost" id="mem-run">执行</button>
+        <div class="logbox" id="mem-sql-out" style="margin-top:8px">—</div>
+      </details>
+    </div>
+
+    <div id="view-tools" class="view" style="display:none">
+      <h2>她的工具（QQ 里她自己就能调用）</h2>
+      <div class="card tools" style="max-width:720px">
+        <ul id="tool-list" style="padding-left:18px"></ul>
+        <p class="muted">把 <code>src/kit-mcp.mjs</code> 挂进 DSH 的 MCP 列表后，这些工具就会出现在她的工具面板里；将来大脑脱离 DSH（ring-bridge 链路）也可以直接复用同一份。</p>
+      </div>
+    </div>
+
+    <div id="view-logs" class="view" style="display:none">
+      <h2>运行日志</h2>
+      <div class="logbox" id="logbox">…</div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id)
+function toast(m) { const t = $('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 3000) }
+const api = (p, opt = {}) => fetch(p, { ...opt, headers: { 'content-type': 'application/json', ...(opt.headers || {}) } }).then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.status); return j })
+
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.remove('on'))
+  document.querySelectorAll('.view').forEach(v => v.style.display = 'none')
+  b.classList.add('on'); $('view-' + b.dataset.v).style.display = 'block'
+  if (b.dataset.v === 'logs') loadLogs()
+  if (b.dataset.v === 'memory') loadMemory()
+  if (b.dataset.v === 'usage') loadUsage()
+})
+
+const ageText = (m) => m === null || m === undefined ? '暂无' : (m < 1 ? '刚刚' : Math.round(m) + ' 分钟前')
+function dutyCard(kind, st, round) {
+  $(kind + '-meta').innerHTML =
+    `<span>凭证 <b>${st.credOk ? '✓ 已登录' : '✗ 未登录'}</b></span>` +
+    `<span>环境 <b>${st.venvOk ? '✓' : '✗'}</b></span>` +
+    `<span>今日 <b>${st.todayCount}/${st.perDay}</b></span>` +
+    `<span>最近活动 <b>${ageText(st.lastActivityAgeMin)}</b></span>` +
+    (st.lastLog?.slice(-1)[0] ? `<span style="width:100%" class="muted">${st.lastLog.slice(-1)[0]}</span>` : '')
+  const r = round || {}
+  const map = { running: ['warn', '一轮进行中'], done: ['ok', '上轮完成'], error: ['bad', '上轮失败'], skipped: ['warn', '上轮跳过'], queued: ['warn', '排队中'], stale: ['bad', '上轮超时'] }
+  const pill = map[r.status] || ['ok', '待命']
+  $(kind + '-round').textContent = pill[1]
+  $(kind + '-round').style.background = { warn: '#f3e8c8', ok: '#e3f0ed', bad: '#f6dbd9' }[pill[0]] || '#efece3'
+  $(kind + '-round').style.color = { warn: '#8a6a14', ok: '#1f6f5c', bad: '#8f3a35' }[pill[0]] || '#8a8577'
+}
+
+async function poll() {
+  try {
+    const s = await api('/api/status')
+    $('dot-qq').className = 'dot ' + (s.qq.online ? 'ok' : 'bad')
+    $('qq-state').textContent = s.qq.online ? '已连接' + (s.qq.selfId ? ' · ' + s.qq.selfId : '') : '未连接'
+    $('qq-meta').innerHTML = s.qq.online ? `<span>昵称 <b>${s.qq.nick || '-'}</b></span><span>最近探测 <b>${ageText((Date.now() - s.qq.lastCheck) / 60000)}</b></span>` : `<span class="err">${s.qq.error || 'SnowLuma 未登录或未启动'}</span>`
+    $('dot-brain').className = 'dot ' + (s.brain.configured ? 'ok' : 'warn')
+    $('brain-state').textContent = s.brain.configured ? '已配置 · ' + s.brain.model : '未配置'
+    $('brain-meta').innerHTML = `<span>地址 <b>${s.brain.baseUrl.replace(/^https?:\/\//, '').slice(0, 40)}</b></span><span>key <b>${s.brain.keyMasked || '未填'}</b></span>`
+    dutyCard('bili', s.bili, s.rounds.bili)
+    dutyCard('douyin', s.douyin, s.rounds.douyin)
+    if (!$('view-brain').style.display || $('view-brain').style.display === 'block') { /* 保持输入框不动 */ }
+  } catch (e) { toast('连接工作台失败：' + e.message) }
+}
+
+async function loadLogs() { try { const l = await api('/api/logs'); $('logbox').textContent = l.lines.join('\n') || '暂无日志' } catch (e) { $('logbox').textContent = '读取失败：' + e.message } }
+
+$('run-bili').onclick = async (e) => { e.target.disabled = true; try { const r = await api('/api/run', { method: 'POST', body: JSON.stringify({ kind: 'bili' }) }); toast(r.ok ? 'B站值班轮已在后台开始' : (r.reason || '未启动')); poll() } catch (err) { toast(err.message) } e.target.disabled = false }
+$('run-douyin').onclick = async (e) => { e.target.disabled = true; try { const r = await api('/api/run', { method: 'POST', body: JSON.stringify({ kind: 'douyin' }) }); toast(r.ok ? '抖音值班轮已在后台开始' : (r.reason || '未启动')); poll() } catch (err) { toast(err.message) } e.target.disabled = false }
+const showReport = async (kind) => { try { const r = await api('/api/report?kind=' + kind); const w = window.open('', '_blank'); w.document.write('<pre style="white-space:pre-wrap;font:13px/1.7 Consolas,monospace;padding:24px;background:#151c2b;color:#dbe4f5;min-height:100vh;box-sizing:border-box">' + (r.file ? '【' + r.file + '】\n\n' : '今天还没有日报') + (r.content || '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</pre>') } catch (e) { toast(e.message) } }
+$('report-bili').onclick = () => showReport('bili')
+$('report-douyin').onclick = () => showReport('douyin')
+
+async function loadBrain() {
+  try { const b = (await api('/api/brain')).brain
+    $('brain-url').value = b.baseUrl || ''; $('brain-model').value = b.model || ''
+    $('brain-key').placeholder = b.keySet ? '已保存（' + b.keyMasked + '，留空不改）' : 'sk-...'
+    $('brain-enabled').checked = !!b.enabled
+  } catch (e) { toast(e.message) }
+}
+$('brain-save').onclick = async () => {
+  try {
+    const r = await api('/api/brain', { method: 'POST', body: JSON.stringify({ baseUrl: $('brain-url').value, model: $('brain-model').value, key: $('brain-key').value, enabled: $('brain-enabled').checked }) })
+    toast('已保存'); $('brain-key').value = ''; loadBrain(); poll()
+  } catch (e) { toast('保存失败：' + e.message) }
+}
+$('brain-test').onclick = async (e) => {
+  e.target.disabled = true; $('brain-result').textContent = '测试中…'
+  try { const r = await api('/api/brain/test', { method: 'POST' }); $('brain-result').textContent = r.ok ? `✓ 连通（${r.ms}ms）：${r.reply}` : '✗ ' + r.error } catch (e2) { $('brain-result').textContent = '✗ ' + e2.message }
+  e.target.disabled = false
+}
+
+async function loadMemory() {
+  try {
+    const s = await api('/api/memory?platform=' + encodeURIComponent($('mem-platform').value) + '&q=' + encodeURIComponent($('mem-q').value))
+    $('mem-db').textContent = '库: ' + (s.stats.dbPath || '')
+    $('mem-stats').innerHTML = `<span>总计 <b>${s.stats.total}</b> 条</span>` +
+      (s.stats.bili ? `<span>B站 <b>${s.stats.bili.count}</b> 条（最近 ${String(s.stats.bili.last).slice(0,10)}）</span>` : '<span>B站 <b>0</b> 条</span>') +
+      (s.stats.douyin ? `<span>抖音 <b>${s.stats.douyin.count}</b> 条（最近 ${String(s.stats.douyin.last).slice(0,10)}）</span>` : '<span>抖音 <b>0</b> 条</span>')
+    const tb = $('mem-table').querySelector('tbody')
+    tb.innerHTML = s.recent.length ? s.recent.map(r =>
+      `<tr><td style="padding:5px 8px">${r.platform === 'bili' ? 'B站' : '抖音'}</td>` +
+      `<td style="padding:5px 8px">${r.vid}</td>` +
+      `<td style="padding:5px 8px">${esc(r.title || '')}</td>` +
+      `<td style="padding:5px 8px">${r.grade || '-'}</td>` +
+      `<td style="padding:5px 8px;color:var(--dim)">${esc((r.reason || r.summary || '').slice(0, 60))}</td>` +
+      `<td style="padding:5px 8px">${r.picked_at.slice(0, 10)}</td></tr>`).join('')
+      : '<tr><td colspan="6" style="padding:10px;color:var(--dim)">暂无记忆（跑一轮后自动入库）</td></tr>'
+  } catch (e) { toast('记忆库读取失败：' + e.message) }
+}
+$('mem-refresh').onclick = loadMemory
+$('mem-q').addEventListener('keydown', e => { if (e.key === 'Enter') loadMemory() })
+$('mem-run').onclick = async () => {
+  try {
+    const r = await api('/api/memory/query', { method: 'POST', body: JSON.stringify({ sql: $('mem-sql').value }) })
+    $('mem-sql-out').textContent = JSON.stringify(r.rows, null, 1).slice(0, 6000) || '（空结果）'
+  } catch (e) { $('mem-sql-out').textContent = '✗ ' + e.message }
+}
+
+const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))
+async function loadUsage() {
+  try {
+    const u = await api('/api/usage')
+    const fmt = (x) => `调用 <b>${x.calls}</b> · tokens <b>${x.t}</b> · 花费 <b>¥${Number(x.cost).toFixed(4)}</b>`
+    $('u-today').innerHTML = fmt(u.today)
+    $('u-month').innerHTML = fmt(u.month)
+    $('u-total').innerHTML = fmt(u.total)
+    $('u-kind').innerHTML = u.byKind.length ? u.byKind.map(k => `<span>${k.kind} <b>${k.calls}次 / ¥${Number(k.cost).toFixed(4)}</b></span>`).join('') : '<span>还没有记录</span>'
+    $('u-trend').innerHTML = u.trend.length ? u.trend.map(d => `<tr><td style="padding:4px 8px">${d.day}</td><td style="padding:4px 8px">${d.calls}</td><td style="padding:4px 8px">${d.tokens}</td><td style="padding:4px 8px">¥${Number(d.cost).toFixed(4)}</td></tr>`).join('') : '<tr><td colspan="4" style="padding:8px;color:var(--dim)">还没有记录</td></tr>'
+    $('u-recent').innerHTML = u.recent.length ? u.recent.map(r => `<tr><td style="padding:4px 8px">${String(r.at).replace('T',' ').slice(0,19)}</td><td style="padding:4px 8px">${r.kind}</td><td style="padding:4px 8px">${r.model}</td><td style="padding:4px 8px">${r.total_tokens}</td><td style="padding:4px 8px">¥${Number(r.cost).toFixed(4)}</td></tr>`).join('') : '<tr><td colspan="5" style="padding:8px;color:var(--dim)">还没有记录</td></tr>'
+    const pm = $('u-pricing')
+    if (!pm.dataset.loaded) {
+      pm.dataset.loaded = '1'
+      const models = Object.keys(u.pricing.models || {}).length ? u.pricing.models : {}
+      const rows = Object.entries(models).map(([m, p]) => `<div style="display:flex;gap:8px;margin-bottom:6px"><input class="wide pm-model" value="${m}" style="margin:0;flex:2"><input class="wide pm-in" value="${p.input}" style="margin:0;flex:1"><input class="wide pm-out" value="${p.output}" style="margin:0;flex:1"></div>`).join('')
+      pm.innerHTML = `<div class="muted" style="display:flex;gap:8px;margin-bottom:4px"><span style="flex:2">模型名</span><span style="flex:1">输入¥/M</span><span style="flex:1">输出¥/M</span></div>` + rows +
+        `<div style="display:flex;gap:8px;margin:6px 0"><input class="wide pm-model" placeholder="新模型名" style="margin:0;flex:2"><input class="wide pm-in" placeholder="输入" style="margin:0;flex:1"><input class="wide pm-out" placeholder="输出" style="margin:0;flex:1"></div>` +
+        `<div class="muted">默认价格：输入 ¥${u.pricing.default.input}/M · 输出 ¥${u.pricing.default.output}/M（未列出的模型按默认算）</div>`
+    }
+  } catch (e) { toast('花费读取失败：' + e.message) }
+}
+$('u-price-save').onclick = async () => {
+  const models = {}
+    const rows = document.querySelectorAll('#u-pricing > div:not(.muted)')
+    for (let i = 0; i < rows.length - 1; i++) {
+      const ins = rows[i].querySelectorAll('input')
+    if (ins[0].value.trim()) models[ins[0].value.trim()] = { input: Number(ins[1].value) || 0, output: Number(ins[2].value) || 0 }
+  }
+  try { await api('/api/pricing', { method: 'POST', body: JSON.stringify({ models, default: { input: 4, output: 16 } }) }); toast('价格表已保存'); $('u-pricing').dataset.loaded = ''; loadUsage() } catch (e) { toast('保存失败：' + e.message) }
+}
+
+const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))
+async function loadTools() {
+  try { const t = (await api('/api/tools')).tools
+    $('tool-list').innerHTML = t.map(x => `<li><code>${x.name}</code> — ${x.description}</li>`).join('')
+  } catch { $('tool-list').innerHTML = '<li>读取失败</li>' }
+}
+loadBrain(); loadTools(); poll(); setInterval(poll, 6000)
+</script>
+</body>
+</html>
