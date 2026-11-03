@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>刷视频综合面板</title>
+<style>
+  html, body { margin: 0; background: #0f1420; color: #dbe4f5; font: 14px/1.6 "Segoe UI","Microsoft YaHei",sans-serif; min-height: 100%; }
+  #root { min-height: 100vh; }
+  a { color: #5b8cff; }
+  /* ── 提供 DSH 设计变量（面板样式依赖 --dsw-alias-*，独立页里要自己定义）── */
+  :root {
+    --dsw-alias-bg-base: #0f1420;
+    --dsw-alias-bg-layer-1: #223052;
+    --dsw-alias-bg-layer-2: rgba(127,140,175,.10);
+    --dsw-alias-bg-layer-3: rgba(160,175,210,.16);
+    --dsw-alias-bg-layer-4: rgba(127,140,175,.16);
+    --dsw-alias-bg-overlay: #1a2236;
+    --dsw-alias-border-l2: rgba(160,175,210,.22);
+    --dsw-alias-brand-primary: #4f7cff;
+    --dsw-alias-interactive-bg-hover: rgba(127,140,175,.18);
+    --dsw-alias-label-primary: #dbe4f5;
+    --dsw-alias-label-secondary: #aeb9d6;
+    --dsw-alias-label-tertiary: #8494b3;
+    color-scheme: dark;
+  }
+</style>
+</head>
+<body>
+<div id="root">正在加载面板…（若长时间无响应，确认 DSH 正在运行后刷新本页）</div>
+<script src="/vendor/react.production.min.js"></script>
+<script src="/vendor/react-dom.production.min.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

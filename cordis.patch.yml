@@ -1,0 +1,17 @@
+# ============================================================================
+# dsh-video-scroll —— DSH bundle patch（合并插件的挂载声明，v1.1.0 单入口）
+# ============================================================================
+# ⚠️ 为什么只有一个 entry：client-modules 的浏览器 bundle 扫描不接受带 `/` 的
+#    条目名（exactPackageSpecifier），v1.0.0 的子路径 entry 会让设置页面板消失。
+#    现在单 entry（id = 命名空间 video-scroll），两个功能在根 apply 里用 ctx.plugin
+#    挂载成子 fiber；面板由包根 client.js 注册（slot id 仍是 bili-scroll / douyin-scroll）。
+#
+# 装上之后 profile 的 dsh.profile.bundles 里列出本包名即生效：
+#   dsh plugin --profile desktop add link:<本目录>
+#   （装完必须重启一次 dsh —— bundle 层要重启才组装）
+# ============================================================================
+
+- insert:
+    - id: video-scroll
+      name: dsh-video-scroll
+      config: {}
