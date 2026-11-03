@@ -246,7 +246,7 @@ export function startWeb() {
   })
   server.on('error', (e) => kitLog('工作台端口失败：' + String(e?.message || e)))
   server.listen(port, '127.0.0.1', () => {
-    kitLog(`工作台已上线: http://127.0.0.1:${port}/?token=${TOKEN}`)
+    kitLog(`工作台已上线: http://127.0.0.1:${port}（令牌见 state/console-token，桌面快捷方式已刷新）`)
     writeShortcut(port, TOKEN)
   })
   return () => server.close()
