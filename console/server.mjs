@@ -141,7 +141,7 @@ export function startConsole() {
       state = { port, key }
       try { writeJsonAtomic(metaFile, { ...meta, key, port, updatedAt: new Date().toISOString() }) } catch { /* 忽略 */ }
       writeShortcut(port, key)
-      log(`控制台已上线: http://127.0.0.1:${port}/?k=${key} （快捷方式已刷新）`)
+      log(`控制台已上线: http://127.0.0.1:${port}（key 见 ~/.dsh/video-scroll-console.json，快捷方式已刷新）`)
     })
   }
   tryListen()
