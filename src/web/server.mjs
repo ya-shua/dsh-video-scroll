@@ -219,6 +219,19 @@ export function startWeb() {
         kitLog('价格表已更新（工作台）')
         return json(res, 200, { ok: true })
       }
+      // ── 服务台能力（并入工作台）：探活 / 大肥鱼统计 / 白名单日志尾巴 ──
+      if (url.pathname === '/api/services' && req.method === 'GET') {
+        const { probeAll } = await import('../services.mjs')
+        return json(res, 200, await probeAll())
+      }
+      if (url.pathname === '/api/bot' && req.method === 'GET') {
+        const { botStats } = await import('../services.mjs')
+        return json(res, 200, botStats())
+      }
+      if (url.pathname === '/api/log' && req.method === 'GET') {
+        const { tailLog } = await import('../services.mjs')
+        return json(res, 200, tailLog(url.searchParams.get('id') || 'kit', Number(url.searchParams.get('lines')) || 40))
+      }
       if (url.pathname === '/api/quit' && req.method === 'POST') {
         json(res, 200, { ok: true }); kitLog('工作台收到退出指令')
         setTimeout(() => process.exit(0), 200); return

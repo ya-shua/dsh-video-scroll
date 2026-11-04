@@ -56,6 +56,7 @@
       <button data-v="brain">大脑</button>
       <button data-v="memory">记忆库</button>
       <button data-v="usage">花费</button>
+      <button data-v="services">服务</button>
       <button data-v="tools">她的工具</button>
       <button data-v="logs">运行日志</button>
     </nav>
@@ -156,6 +157,39 @@
       </div>
     </div>
 
+    <div id="view-services" class="view" style="display:none">
+      <h2>服务 <span class="muted" style="font-size:12px">全部插件的探活与入口（原服务台功能已并入这里）</span></h2>
+      <div class="card" style="overflow:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px" id="svc-table">
+          <thead><tr style="color:var(--dim);text-align:left">
+            <th style="padding:6px 10px">状态</th><th style="padding:6px 10px">服务</th><th style="padding:6px 10px">端口</th><th style="padding:6px 10px">响应</th><th style="padding:6px 10px">入口</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <div style="margin-top:8px"><button class="ghost" id="svc-refresh">重新探测</button> <span class="muted" id="svc-at"></span></div>
+      </div>
+      <div class="grid cols2" style="margin-top:14px">
+        <div class="card">
+          <h3>大肥鱼 · 记忆库（只读统计）</h3>
+          <div class="kv" id="bot-mem"></div>
+        </div>
+        <div class="card">
+          <h3>刷视频 · 记忆库</h3>
+          <div class="kv" id="bot-video"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>日志尾巴 <select id="log-id" style="background:var(--card2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font:inherit">
+          <option value="kit">刷视频 · kit.log</option>
+          <option value="kitweb">工作台 · web.log</option>
+          <option value="bridge">QQ 桥接 · bridge.log</option>
+          <option value="activity">QQ 桥接 · 活动日志</option>
+          <option value="voice">声来 · panel.log</option>
+        </select></h3>
+        <div class="logbox" id="svc-log">…</div>
+      </div>
+    </div>
+
     <div id="view-memory" class="view" style="display:none">
       <h2>记忆库 <span class="muted" style="font-size:12px" id="mem-db"></span></h2>
       <div class="card" style="margin-bottom:14px">
@@ -212,6 +246,7 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   if (b.dataset.v === 'logs') loadLogs()
   if (b.dataset.v === 'memory') loadMemory()
   if (b.dataset.v === 'usage') loadUsage()
+  if (b.dataset.v === 'services') { loadServices(); loadBot(); loadSvcLog($('log-id').value) }
 })
 
 const ageText = (m) => m === null || m === undefined ? '暂无' : (m < 1 ? '刚刚' : Math.round(m) + ' 分钟前')
@@ -332,6 +367,40 @@ $('u-price-save').onclick = async () => {
 }
 
 const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))
+const PANEL_URLS = { videokit: '/', videoconsole: 'http://127.0.0.1:8390/join', ringmind: 'http://127.0.0.1:5173/', liuying: 'http://127.0.0.1:5188/', shenglai: 'http://127.0.0.1:17878/', snowluma: 'http://127.0.0.1:5099/' }
+async function loadServices() {
+  try {
+    const r = await api('/api/services')
+    const tb = $('svc-table').querySelector('tbody')
+    tb.innerHTML = r.services.map(s => {
+      const cls = s.up ? 'ok' : 'bad'
+      const link = PANEL_URLS[s.id] ? `<a class="plink" href="${PANEL_URLS[s.id]}" target="_blank">打开 ↗</a>` : '—'
+      return `<tr><td style="padding:5px 10px"><span class="dot ${cls}"></span></td>` +
+        `<td style="padding:5px 10px">${s.name}</td><td style="padding:5px 10px;color:var(--dim)">${s.port}</td>` +
+        `<td style="padding:5px 10px;color:var(--dim)">${s.up ? s.ms + 'ms' : '不在线'}</td>` +
+        `<td style="padding:5px 10px">${link}</td></tr>`
+    }).join('')
+    $('svc-at').textContent = '探测于 ' + new Date(r.at).toLocaleTimeString('zh-CN', { hour12: false })
+  } catch (e) { toast('服务探活失败：' + e.message) }
+}
+$('svc-refresh').onclick = loadServices
+$('log-id').onchange = () => loadSvcLog($('log-id').value)
+function loadSvcLog(id) {
+  api('/api/log?id=' + id + '&lines=40').then(l => { $('svc-log').textContent = (l.lines || []).join('\n') || '（空）' }).catch(e => { $('svc-log').textContent = '读取失败：' + e.message })
+}
+async function loadBot() {
+  try {
+    const b = await api('/api/bot')
+    const m = b.memory
+    $('bot-mem').innerHTML = m
+      ? `<span>记忆 <b>${Object.values(m.rings || {}).reduce((a, c) => a + c, 0)}</b> 条</span><span>点 <b>${m.points}</b>（活跃 ${m.pointsAlive}）</span><span>总库 <b>${m.vault}</b></span><span>最近 <b>${m.lastMemoryAt ? String(m.lastMemoryAt).slice(0, 16).replace('T', ' ') : '-'}</b></span>`
+      : '<span class="err">' + (b.memoryError || '环形的心面板未运行') + '</span>'
+    const v = b.video
+    $('bot-video').innerHTML = v
+      ? `<span>总计 <b>${v.total}</b> 条</span>` + (v.byPlatform || []).map(p => `<span>${p.platform === 'bili' ? 'B站' : '抖音'} <b>${p.n}</b></span>`).join('') + `<span>最近 <b>${v.lastPickedAt ? String(v.lastPickedAt).slice(0, 16).replace('T', ' ') : '-'}</b></span>`
+      : '<span class="err">记忆库文件缺失</span>'
+  } catch (e) { toast('统计失败：' + e.message) }
+}
 async function loadTools() {
   try { const t = (await api('/api/tools')).tools
     $('tool-list').innerHTML = t.map(x => `<li><code>${x.name}</code> — ${x.description}</li>`).join('')
