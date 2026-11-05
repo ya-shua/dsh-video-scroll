@@ -7,7 +7,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { kitLog } from './config.js'
 
-const snowState = { online: false, selfId: '', nick: '', lastCheck: 0, endpoint: '', error: '', timer: null }
+const snowState = { online: false, selfId: '', nick: '', lastCheck: 0, endpoint: '', error: '', webuiUp: false, timer: null }
 
 function accountFiles(snowHome) {
   try { return fs.readdirSync(path.join(snowHome, 'config')).filter((f) => /^onebot_\d+\.json$/.test(f)).map((f) => path.join(snowHome, 'config', f)) } catch { return [] }
@@ -38,6 +38,11 @@ async function probe(ep) {
 }
 
 async function checkOnce(cfg) {
+  // WebUI 探测：区分「SnowLuma 没开」和「开着但 QQ 没登录」
+  try {
+    const r = await fetch((cfg.snow.webuiUrl || 'http://127.0.0.1:5099') + '/', { signal: AbortSignal.timeout(2500) })
+    snowState.webuiUp = Boolean(r.status)
+  } catch { snowState.webuiUp = false }
   const files = accountFiles(cfg.snow.homeDir)
   for (const f of files) {
     for (const ep of endpointsFrom(f)) {
@@ -54,7 +59,8 @@ async function checkOnce(cfg) {
     }
   }
   if (snowState.online) kitLog('QQ 已断开/未登录 → 工具包转入待命（值班轮暂停）')
-  snowState.online = false; snowState.lastCheck = Date.now(); snowState.error = files.length ? '全部端点探测失败' : 'SnowLuma/config 下没有 onebot_*.json'
+  snowState.online = false; snowState.lastCheck = Date.now()
+  snowState.error = snowState.webuiUp ? 'SnowLuma 在运行，但 QQ 未登录 —— 打开 127.0.0.1:5099 登录 QQ' : (files.length ? '全部端点探测失败（SnowLuma 可能没启动）' : 'SnowLuma/config 下没有 onebot_*.json')
 }
 
 export function startSnowWatcher(cfg) {

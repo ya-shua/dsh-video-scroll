@@ -2,7 +2,8 @@
   "snow": {
     "homeDir": "D:\\AI\\QQ大肥鱼\\SnowLuma",
     "httpUrl": "http://127.0.0.1:3000",
-    "probeEverySec": 30
+    "probeEverySec": 30,
+    "webuiUrl": "http://127.0.0.1:5099"
   },
   "brain": {
     "baseUrl": "https://maas.qianwenaiapi.com/compatible-mode/v1",

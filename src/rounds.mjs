@@ -9,14 +9,17 @@ import { loadConfig, resolveBili, resolveDouyin, stateWrite, stateRead, kitLog, 
 import { requireOnline } from './snow.mjs'
 import * as bili from './bili.mjs'
 import * as douyin from './douyin.mjs'
+import { ingestRoundSummary } from './ring-ingest.mjs'
 
 const RUNNER = path.join(KIT_DIR, 'src', 'round-runner.mjs')
 
 const RUNNING_TTL = 2 * 60 * 60 * 1000 // 2 小时内的 running 视为仍在跑
+const QUEUED_TTL = 10 * 60 * 1000 // queued 10 分钟没被接管 = 派发失败，转 stale
 
 export function roundState(kind) {
   const s = stateRead(`round-${kind}.json`, {})
   if (s.status === 'running' && Date.now() - (s.startedAt || 0) > RUNNING_TTL) s.status = 'stale'
+  if (s.status === 'queued' && Date.now() - (s.queuedAt || 0) > QUEUED_TTL) s.status = 'stale'
   return s
 }
 
@@ -38,6 +41,11 @@ export async function runRound(kind, { reason = 'manual' } = {}) {
     const engine = kind === 'bili' ? bili : douyin
     const r = await engine.runRound(cfg, resolve, { reason })
     stateWrite(`round-${kind}.json`, { status: r.ok ? 'done' : 'skipped', startedAt, endedAt: Date.now(), reason, ...r })
+    if (r?.ok) {
+      // 环心留痕：把这次挑选的摘要投进她的记忆（闲聊圈自动入库）。
+      // fire-and-forget：留痕失败只进 kit.log，绝不拖累值班轮的结果。
+      ingestRoundSummary(kind).catch(() => { })
+    }
     return r
   } catch (e) {
     const msg = String(e?.message || e)
