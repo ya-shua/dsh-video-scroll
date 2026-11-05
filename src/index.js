@@ -35,7 +35,8 @@ function inWindow(cfg) {
 }
 setInterval(() => {
   try {
-    if (!inWindow(cfg)) return
+    // 「她想刷就刷」开着 = 无时间限制：峰谷窗口不拦，只受每日轮数/花费限额约束
+    if (!inWindow(cfg) && !cfg.agent?.freeRun) return
     if (!brainConfigured(cfg)) return
     for (const kind of ['bili', 'douyin']) {
       if (roundRunning(kind)) continue

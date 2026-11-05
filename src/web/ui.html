@@ -44,6 +44,36 @@
   .muted { color:var(--dim); font-size:12px; }
   .err { color:var(--bad); font-size:12.5px; }
   a.plink { font-size:12.5px; color:var(--acc); text-decoration:none; border:1px solid var(--acc); border-radius:999px; padding:4px 12px; }
+  /* ── 总览首屏 ── */
+  .hero { background:linear-gradient(135deg, rgba(79,124,255,.16), rgba(79,124,255,.04)); border:1px solid var(--line); border-radius:16px; padding:18px 22px 14px; margin-bottom:14px; }
+  .hero-main { display:flex; align-items:flex-end; gap:26px; }
+  .hero-num span { font-size:44px; font-weight:700; line-height:1; color:#fff; }
+  .hero-num small { display:block; font-size:11.5px; color:var(--dim); margin-top:4px; }
+  .hero-split { display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--dim); padding-bottom:4px; }
+  .hero-split b { color:var(--ink); }
+  .hero-chips { margin-left:auto; display:flex; flex-direction:column; gap:6px; align-items:flex-end; }
+  .chip { display:inline-flex; align-items:center; gap:7px; background:var(--card2); border:1px solid var(--line); border-radius:999px; padding:5px 14px; font-size:12.5px; }
+  .bars { display:flex; align-items:flex-end; gap:5px; height:56px; margin-top:14px; }
+  .bars .b { flex:1; display:flex; align-items:flex-end; gap:2px; height:100%; }
+  .bars .b i { display:block; flex:1; border-radius:3px 3px 0 0; background:var(--acc); min-height:2px; }
+  .bars .b i.dy { background:#b7791f; }
+  .bars-labels { display:flex; gap:5px; margin-top:5px; }
+  .bars-labels span { flex:1; text-align:center; font-size:10px; color:var(--dim); }
+  .feed { display:flex; flex-direction:column; gap:7px; }
+  .feed .fi { display:flex; align-items:center; gap:10px; font-size:12.5px; }
+  .feed .fi .tag { flex:none; width:38px; text-align:center; border-radius:6px; padding:1px 0; font-size:11px; }
+  .feed .fi .tag.bili { background:var(--acc-soft); color:#9db8ff; }
+  .feed .fi .tag.douyin { background:rgba(183,121,31,.15); color:#d9a44a; }
+  .feed .fi .t { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--ink); }
+  .feed .fi .d { color:var(--dim); font-size:11px; }
+  .switch { display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none; font-size:13px; }
+  .switch input { display:none; }
+  .knob { width:36px; height:20px; border-radius:10px; background:#3a4664; position:relative; transition:.15s; flex:none; }
+  .knob::after { content:''; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#c6d3e8; transition:.15s; }
+  .switch input:checked + .knob { background:var(--acc); }
+  .switch input:checked + .knob::after { left:18px; background:#fff; }
+  .agentin { width:90px; padding:6px 10px; border:1px solid var(--line); border-radius:8px; background:#101725; color:var(--ink); font:inherit; }
+  .agentlab { font-size:11.5px; color:var(--dim); margin-bottom:3px; }
 </style>
 </head>
 <body>
@@ -71,15 +101,31 @@
       <iframe id="panel-frame" src="/panel.html" style="width:100%;height:calc(100vh - 150px);border:1px solid var(--line);border-radius:13px;background:#0f1420"></iframe>
     </div>
     <div id="view-home" class="view">
-      <h2>总览</h2>
+      <div class="hero">
+        <div class="hero-main">
+          <div class="hero-num"><span id="hero-total">0</span><small>今日已挑（条）</small></div>
+          <div class="hero-split">
+            <span>📺 B站 <b id="hero-bili">0</b></span>
+            <span>🎵 抖音 <b id="hero-douyin">0</b></span>
+          </div>
+        </div>
+        <div class="hero-chips">
+          <span class="chip" id="chip-qq"><span class="dot" id="dot-qq"></span>QQ 检测中</span>
+          <span class="chip" id="chip-brain"><span class="dot" id="dot-brain"></span>大脑 检测中</span>
+          <span class="chip" id="chip-cost">今日 ¥0.0000</span>
+        </div>
+        <div class="bars" id="hero-bars"></div>
+        <div class="bars-labels" id="hero-bars-labels"></div>
+      </div>
+
       <div class="grid cols2">
         <div class="card">
-          <h3><span class="dot" id="dot-qq"></span>QQ 连接 <span class="pill" id="qq-state">检测中</span></h3>
+          <h3><span class="dot" id="dot-qq2"></span>QQ 连接 <span class="pill" id="qq-state">检测中</span></h3>
           <div class="kv" id="qq-meta"></div>
           <p class="muted" style="margin-top:8px">QQ 在线时值班轮才放行；掉线自动转入待命。</p>
         </div>
         <div class="card">
-          <h3><span class="dot" id="dot-brain"></span>大脑（自填 key） <span class="pill" id="brain-state">检查中</span></h3>
+          <h3><span class="dot" id="dot-brain2"></span>大脑（自填 key） <span class="pill" id="brain-state">检查中</span></h3>
           <div class="kv" id="brain-meta"></div>
           <p class="muted" style="margin-top:8px">值班轮的判断与日报全走这里，与 DSH 无关。去「大脑」页填写。</p>
         </div>
@@ -101,6 +147,23 @@
             <button class="ghost" id="report-douyin">📄 最新日报</button>
           </div>
         </div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <h3>🤖 她想刷就刷 <span class="pill" id="agent-state">关闭</span></h3>
+        <div class="kv" id="agent-meta"></div>
+        <p class="muted" style="margin-top:8px">开着 = 她随时都能发起刷视频（<b>无时间限制</b>），峰谷窗口不再约束值班轮；可叠加每日轮数 / 花费上限，设 0 = 不限。</p>
+        <div style="display:flex; gap:18px; flex-wrap:wrap; align-items:flex-end; margin-top:10px">
+          <div><div class="agentlab">自由模式</div><label class="switch"><input type="checkbox" id="agent-free"><span class="knob"></span></label></div>
+          <div><div class="agentlab">每天最多几轮（0=不限）</div><input class="agentin" id="agent-rounds" type="number" min="0" value="0"></div>
+          <div><div class="agentlab">每天花费上限 ¥（0=不限）</div><input class="agentin" id="agent-cost" type="number" min="0" step="0.5" value="0"></div>
+          <button class="act" id="agent-save" style="align-self:flex-end">保存</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <h3>🆕 最近挑过 <span class="muted" style="font-weight:400;font-size:12px">（跨平台记忆库 · 最近 8 条）</span></h3>
+        <div id="feed" class="feed"><span class="muted">加载中…</span></div>
       </div>
     </div>
 
@@ -276,8 +339,46 @@ async function poll() {
     $('brain-meta').innerHTML = `<span>地址 <b>${s.brain.baseUrl.replace(/^https?:\/\//, '').slice(0, 40)}</b></span><span>key <b>${s.brain.keyMasked || '未填'}</b></span>`
     dutyCard('bili', s.bili, s.rounds.bili)
     dutyCard('douyin', s.douyin, s.rounds.douyin)
+    // ── 她想刷就刷 ──
+    const a = s.agent || {}
+    for (const [id, val] of [['agent-free', !!a.freeRun], ['agent-rounds', a.maxRoundsPerDay || 0], ['agent-cost', a.maxCostPerDay || 0]])
+      if (document.activeElement !== $(id)) { if ($(id).type === 'checkbox') $(id).checked = val; else $(id).value = val }
+    $('agent-state').textContent = a.freeRun ? '自由模式开' : '关闭'
+    $('agent-state').style.background = a.freeRun ? 'var(--acc-soft)' : '#1c2438'
+    $('agent-state').style.color = a.freeRun ? '#9db8ff' : 'var(--dim)'
+    $('agent-meta').innerHTML = a.freeRun
+      ? `<span>今日轮数 <b>${s.agent.roundsToday}${a.maxRoundsPerDay ? '/' + a.maxRoundsPerDay : '（不限）'}</b></span><span>今日花费 <b>¥${Number((s.usageToday && s.usageToday.cost) || 0).toFixed(2)}${a.maxCostPerDay ? '/' + a.maxCostPerDay : ''}</b></span>`
+      : '<span>开关关闭 —— 值班轮走峰谷窗口（schedule 页配置），她发起的请求也会受限</span>'
+    // ── 首屏 hero ──
+    const biliToday = s.bili.todayCount || 0, douyinToday = s.douyin.todayCount || 0
+    $('hero-total').textContent = biliToday + douyinToday
+    $('hero-bili').textContent = biliToday
+    $('hero-douyin').textContent = douyinToday
+    $('chip-qq').innerHTML = `<span class="dot ${s.qq.online ? 'ok' : 'bad'}"></span>` + (s.qq.online ? 'QQ 在线' : 'QQ 未连接')
+    $('chip-brain').innerHTML = `<span class="dot ${s.brain.configured ? 'ok' : 'warn'}"></span>` + (s.brain.configured ? '大脑 ' + s.brain.model : '大脑未配置')
+    $('chip-cost').textContent = '今日花费 ¥' + Number((s.usageToday && s.usageToday.cost) || 0).toFixed(2)
+    const maxN = Math.max(1, ...(s.series || []).map(d => (d.bili || 0) + (d.douyin || 0)))
+    $('hero-bars').innerHTML = (s.series || []).map(d => {
+      const bt = d.bili || 0, dy = d.douyin || 0, tot = bt + dy
+      const hb = tot ? Math.round(bt / maxN * 52) : 0
+      const hd = tot ? Math.round(dy / maxN * 52) : 0
+      return `<div class="b" title="${d.day}：B站 ${bt} · 抖音 ${dy}"><i style="height:${hb}px"></i><i class="dy" style="height:${hd}px"></i></div>`
+    }).join('')
+    $('hero-bars-labels').innerHTML = (s.series || []).map(d => `<span>${d.day.slice(5)}</span>`).join('')
+    if (!$('view-home').style.display || $('view-home').style.display === 'block') loadFeed()
     if (!$('view-brain').style.display || $('view-brain').style.display === 'block') { /* 保持输入框不动 */ }
   } catch (e) { toast('连接工作台失败：' + e.message) }
+}
+
+async function loadFeed() {
+  try {
+    const m = await api('/api/memory?limit=8')
+    $('feed').innerHTML = m.recent.length ? m.recent.map(r =>
+      `<div class="fi"><span class="tag ${r.platform}">${r.platform === 'bili' ? 'B站' : '抖音'}</span>` +
+      `<span class="t">${esc(r.title || r.vid)}${r.grade ? '（' + r.grade + '）' : ''}</span>` +
+      `<span class="d">${String(r.round_date || r.picked_at).slice(5, 10)}</span></div>`).join('')
+      : '<span class="muted">还没有挑过的视频（跑一轮后这里会出现）</span>'
+  } catch (e) { $('feed').innerHTML = '<span class="err">读取失败</span>' }
 }
 
 async function loadLogs() { try { const l = await api('/api/logs'); $('logbox').textContent = l.lines.join('\n') || '暂无日志' } catch (e) { $('logbox').textContent = '读取失败：' + e.message } }
@@ -287,6 +388,13 @@ $('run-douyin').onclick = async (e) => { e.target.disabled = true; try { const r
 const showReport = async (kind) => { try { const r = await api('/api/report?kind=' + kind); const w = window.open('', '_blank'); w.document.write('<pre style="white-space:pre-wrap;font:13px/1.7 Consolas,monospace;padding:24px;background:#151c2b;color:#dbe4f5;min-height:100vh;box-sizing:border-box">' + (r.file ? '【' + r.file + '】\n\n' : '今天还没有日报') + (r.content || '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</pre>') } catch (e) { toast(e.message) } }
 $('report-bili').onclick = () => showReport('bili')
 $('report-douyin').onclick = () => showReport('douyin')
+$('agent-save').onclick = async () => {
+  try {
+    await api('/api/agent', { method: 'POST', body: JSON.stringify({ freeRun: $('agent-free').checked, maxRoundsPerDay: Number($('agent-rounds').value) || 0, maxCostPerDay: Number($('agent-cost').value) || 0 }) })
+    toast('她想刷就刷：已保存'); poll()
+  } catch (e) { toast('保存失败：' + e.message) }
+}
+;['agent-free', 'agent-rounds', 'agent-cost'].forEach(id => { const el = $(id); if (el) el.addEventListener('change', () => { try { api('/api/agent', { method: 'POST', body: JSON.stringify({ freeRun: $('agent-free').checked, maxRoundsPerDay: Number($('agent-rounds').value) || 0, maxCostPerDay: Number($('agent-cost').value) || 0 }) }).then(() => poll()).catch(() => {}) } catch { /* 忽略 */ } }) })
 
 async function loadBrain() {
   try { const b = (await api('/api/brain')).brain
@@ -338,13 +446,13 @@ const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>'
 async function loadUsage() {
   try {
     const u = await api('/api/usage')
-    const fmt = (x) => `调用 <b>${x.calls}</b> · tokens <b>${x.t}</b> · 花费 <b>¥${Number(x.cost).toFixed(4)}</b>`
+    const fmt = (x) => `调用 <b>${x.calls}</b> · tokens <b>${x.t}</b> · 花费 <b>¥${Number(x.cost).toFixed(2)}</b>`
     $('u-today').innerHTML = fmt(u.today)
     $('u-month').innerHTML = fmt(u.month)
     $('u-total').innerHTML = fmt(u.total)
-    $('u-kind').innerHTML = u.byKind.length ? u.byKind.map(k => `<span>${k.kind} <b>${k.calls}次 / ¥${Number(k.cost).toFixed(4)}</b></span>`).join('') : '<span>还没有记录</span>'
-    $('u-trend').innerHTML = u.trend.length ? u.trend.map(d => `<tr><td style="padding:4px 8px">${d.day}</td><td style="padding:4px 8px">${d.calls}</td><td style="padding:4px 8px">${d.tokens}</td><td style="padding:4px 8px">¥${Number(d.cost).toFixed(4)}</td></tr>`).join('') : '<tr><td colspan="4" style="padding:8px;color:var(--dim)">还没有记录</td></tr>'
-    $('u-recent').innerHTML = u.recent.length ? u.recent.map(r => `<tr><td style="padding:4px 8px">${String(r.at).replace('T',' ').slice(0,19)}</td><td style="padding:4px 8px">${r.kind}</td><td style="padding:4px 8px">${r.model}</td><td style="padding:4px 8px">${r.total_tokens}</td><td style="padding:4px 8px">¥${Number(r.cost).toFixed(4)}</td></tr>`).join('') : '<tr><td colspan="5" style="padding:8px;color:var(--dim)">还没有记录</td></tr>'
+    $('u-kind').innerHTML = u.byKind.length ? u.byKind.map(k => `<span>${k.kind} <b>${k.calls}次 / ¥${Number(k.cost).toFixed(2)}</b></span>`).join('') : '<span>还没有记录</span>'
+    $('u-trend').innerHTML = u.trend.length ? u.trend.map(d => `<tr><td style="padding:4px 8px">${d.day}</td><td style="padding:4px 8px">${d.calls}</td><td style="padding:4px 8px">${d.tokens}</td><td style="padding:4px 8px">¥${Number(d.cost).toFixed(2)}</td></tr>`).join('') : '<tr><td colspan="4" style="padding:8px;color:var(--dim)">还没有记录</td></tr>'
+    $('u-recent').innerHTML = u.recent.length ? u.recent.map(r => `<tr><td style="padding:4px 8px">${String(r.at).replace('T',' ').slice(0,19)}</td><td style="padding:4px 8px">${r.kind}</td><td style="padding:4px 8px">${r.model}</td><td style="padding:4px 8px">${r.total_tokens}</td><td style="padding:4px 8px">¥${Number(r.cost).toFixed(2)}</td></tr>`).join('') : '<tr><td colspan="5" style="padding:8px;color:var(--dim)">还没有记录</td></tr>'
     const pm = $('u-pricing')
     if (!pm.dataset.loaded) {
       pm.dataset.loaded = '1'
@@ -366,7 +474,6 @@ $('u-price-save').onclick = async () => {
   try { await api('/api/pricing', { method: 'POST', body: JSON.stringify({ models, default: { input: 4, output: 16 } }) }); toast('价格表已保存'); $('u-pricing').dataset.loaded = ''; loadUsage() } catch (e) { toast('保存失败：' + e.message) }
 }
 
-const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))
 const PANEL_URLS = { videokit: '/', videoconsole: 'http://127.0.0.1:8390/join', ringmind: 'http://127.0.0.1:5173/', liuying: 'http://127.0.0.1:5188/', shenglai: 'http://127.0.0.1:17878/', snowluma: 'http://127.0.0.1:5099/' }
 async function loadServices() {
   try {

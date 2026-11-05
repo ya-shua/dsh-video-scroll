@@ -52,6 +52,11 @@ const DEFAULTS = {
     autoSend: false,                          // v1 默认只写日报不自动发送
   },
   schedule: { enabled: false, noon: ['12:00', '14:00'], night: ['00:30', '08:30'] },
+  agent: {
+    freeRun: false,          // ★ 她想刷就刷：开着 = 值班轮不受峰谷时间窗限制，她的触发随时放行
+    maxRoundsPerDay: 0,      // 每天最多几轮（B站+抖音合计，0 = 不限）
+    maxCostPerDay: 0,        // 每天大脑花费上限（¥，0 = 不限）
+  },
   web: { port: 8412, host: '127.0.0.1' },
 }
 

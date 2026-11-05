@@ -64,8 +64,9 @@ export async function callTool(name, args = {}) {
       return r.ok ? (r.file ? `【${args.kind} 最新日报 ${r.file}】` + '\n' + r.content.slice(0, 12000) : `${args.kind} 今天还没有日报`) : ('读取失败：' + r.error)
     }
     case 'video_run_round': {
-      if (args.kind === 'bili') return JSON.stringify(kickRoundDetached('bili', args.reason || '她发起'))
-      return JSON.stringify(await runRound('douyin', { reason: args.reason || '她发起' }))
+      // 她发起 = byAgent：自由模式开着时随时放行（无时间窗），受每日轮数/花费限额约束
+      if (args.kind === 'bili') return JSON.stringify(kickRoundDetached('bili', args.reason || '她发起', { byAgent: true }))
+      return JSON.stringify(await runRound('douyin', { reason: args.reason || '她发起', byAgent: true }))
     }
     case 'video_bili_hot':
       return (await bili.biliQuick(cfg, resolveB, 'bili_hot_videos', {})).slice(0, 6000)

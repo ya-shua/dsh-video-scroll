@@ -11,11 +11,13 @@ import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { loadConfig, saveConfigPatch, kitLog, recentLogs, STATE_DIR, resolveBili, resolveDouyin, dshHome } from '../config.js'
+import * as videomem from '../videomem.mjs'
+import * as usage from '../usage.mjs'
 import { snowStatus } from '../snow.mjs'
 import { getBrainKey, setBrainKey, brainConfigured, brainTest } from '../brain.mjs'
 import * as biliEngine from '../bili.mjs'
 import * as douyinEngine from '../douyin.mjs'
-import { roundState, kickRoundDetached, latestReport } from '../rounds.mjs'
+import { roundState, kickRoundDetached, latestReport, roundsToday } from '../rounds.mjs'
 import { TOOLS } from '../tools.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -42,6 +44,31 @@ function json(res, code, data) { res.writeHead(code, { 'content-type': 'applicat
 function statusSnapshot() {
   const cfg = loadConfig()
   const rb = resolveBili(cfg), rd = resolveDouyin(cfg)
+  // 总览增强数据：14 天逐日挑选（跨平台）+ 今日花费 + 记忆总量（全部尽力而为，失败不炸）
+  let series = []
+  let usageToday = null
+  let memoryTotal = null
+  try {
+    videomem.configureMemory(cfg.memory?.dbPath)
+    const db = videomem.open()
+    const since = new Date(Date.now() - 13 * 86400000).toISOString().slice(0, 10)
+    const rows = db.prepare("SELECT round_date AS day, platform, COUNT(*) AS n FROM videos WHERE round_date >= ? GROUP BY round_date, platform ORDER BY day").all(since)
+    const days = []
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10)
+      days.push({ day: d, bili: 0, douyin: 0 })
+    }
+    for (const r of rows) {
+      const slot = days.find((x) => x.day === r.day)
+      if (slot) slot[r.platform] = (slot[r.platform] || 0) + r.n
+    }
+    series = days
+    memoryTotal = videomem.stats().total
+  } catch { /* 总览增强数据失败不致命 */ }
+  try {
+    const u = usage.summary()
+    usageToday = { calls: u.today.calls, tokens: u.today.t, cost: Number(u.today.cost.toFixed(4)) }
+  } catch { /* 花费统计失败不致命 */ }
   return {
     now: Date.now(),
     qq: { online: snowStatus().online, selfId: snowStatus().selfId, nick: snowStatus().nick, error: snowStatus().error, lastCheck: snowStatus().lastCheck },
@@ -49,7 +76,9 @@ function statusSnapshot() {
     bili: biliEngine.biliStatus(cfg, rb),
     douyin: douyinEngine.douyinStatus(cfg, rd),
     rounds: { bili: roundState('bili'), douyin: roundState('douyin') },
+    agent: { ...(cfg.agent || {}), roundsToday: roundsToday() },
     tools: TOOLS.map((t) => ({ name: t.name, description: t.description })),
+    series, usageToday, memoryTotal,
   }
 }
 
@@ -232,6 +261,16 @@ export function startWeb() {
         const { tailLog } = await import('../services.mjs')
         return json(res, 200, tailLog(url.searchParams.get('id') || 'kit', Number(url.searchParams.get('lines')) || 40))
       }
+      if (url.pathname === '/api/agent' && req.method === 'GET') {
+        const c = loadConfig()
+        return json(res, 200, { agent: { ...(c.agent || {}), roundsToday: roundsToday() } })
+      }
+      if (url.pathname === '/api/agent' && req.method === 'POST') {
+        const body = await readBody(req)
+        saveConfigPatch({ agent: { freeRun: Boolean(body.freeRun), maxRoundsPerDay: Math.max(0, Number(body.maxRoundsPerDay) || 0), maxCostPerDay: Math.max(0, Number(body.maxCostPerDay) || 0) } })
+        kitLog(`她想刷就刷：freeRun=${Boolean(body.freeRun)} 轮/日=${body.maxRoundsPerDay || 0} 花费/日=${body.maxCostPerDay || 0}`)
+        return json(res, 200, { ok: true })
+      }
       if (url.pathname === '/api/quit' && req.method === 'POST') {
         json(res, 200, { ok: true }); kitLog('工作台收到退出指令')
         setTimeout(() => process.exit(0), 200); return
@@ -272,11 +311,11 @@ function readBody(req) {
 }
 function loginHtml() {
   return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>刷视频工作台 · 登录</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f6f3ee;font:14px/1.6 "Segoe UI","Microsoft YaHei",sans-serif;color:#23262e}
-.card{background:#fff;border:1px solid #e4ded2;border-radius:14px;padding:28px 30px;width:340px;box-shadow:0 8px 30px rgba(60,50,20,.08)}
-h1{font-size:17px;margin:0 0 6px}p{color:#8a8577;font-size:12.5px;margin:0 0 16px}
-input{width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #ddd6c8;border-radius:9px;font:inherit;margin-bottom:12px}
-button{width:100%;padding:10px;border:0;border-radius:9px;background:#0e7c6b;color:#fff;font:inherit;cursor:pointer}</style></head>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(900px 420px at 50% -80px,#1c2740 0%,#0f1420 62%);font:14px/1.6 "Segoe UI","Microsoft YaHei",sans-serif;color:#dbe4f5}
+.card{background:#151c2b;border:1px solid #26304a;border-radius:14px;padding:28px 30px;width:340px;box-shadow:0 10px 34px rgba(0,0,0,.4)}
+h1{font-size:17px;margin:0 0 6px}p{color:#8494b3;font-size:12.5px;margin:0 0 16px}
+input{width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #26304a;border-radius:9px;font:inherit;margin-bottom:12px;background:#101725;color:#dbe4f5}
+button{width:100%;padding:10px;border:0;border-radius:9px;background:#4f7cff;color:#fff;font:inherit;cursor:pointer}</style></head>
 <body><div class="card"><h1>🎬 刷视频工作台</h1><p>输入访问令牌（state/console-token，桌面快捷方式已自带）</p>
 <form onsubmit="fetch('/api/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token:this.t.value})}).then(r=>r.json()).then(j=>{if(j.ok)location='/';else alert(j.error)});return false">
 <input name="t" placeholder="访问令牌" autofocus><button>进入</button></form></div></body></html>`
