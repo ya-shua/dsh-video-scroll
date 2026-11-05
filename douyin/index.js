@@ -1329,7 +1329,10 @@ export function apply(ctx, config) {
       + '走无头 Chrome 里抖音自己的「分享给朋友」面板，屏幕上无窗口。'
       + '发完会**回读核实**卡片真的出现在「我发的」消息里；核实通过后再隔几秒自动补发 `reason`（为什么值得看）。'
       + '🔴 规矩：**先卡片，后文字** —— 要给文字就用 `reason`（会自动排在卡片后面），'
-      + '别再调一次 `douyin_dm`，那样顺序会反成「文字 → 卡片」。',
+      + '别再调一次 `douyin_dm`，那样顺序会反成「文字 → 卡片」。'
+      + '🔴 **多人分享铁律：卡片和 reason 文字必须发给同一个人** —— 一次调用只服务一个收件人；'
+      + '要发给多个人就**每人各调一次本工具**（同样的 aweme_id/reason，换 to/to_id），'
+      + '绝不允许把文字发给 A、卡片发给 B。',
     parameters: {
       aweme_id: { type: 'string', description: '视频 ID（19 位）。不给就用最近一轮清单里的' },
       to: { type: 'string', description: '发给谁（昵称，只用于显示）；留空用配置 dmTo' },
@@ -2642,14 +2645,15 @@ export function apply(ctx, config) {
            *    工具自己保证先卡片后文字）。@ 评论是叠加任务，不是替代。
            */
           `🟡 **自动发送开着 —— 挑到推荐（加了 \`###\` 那条）后必须发**：\n`
-          + `   ① **必发分享卡片**：调 \`douyin_share_card\`，参数：\n`
-          + `      - aweme_id = 推荐那条的 ID\n`
-          + `      - to_id = '${dmPeersOf().filter((p) => p.sec_uid).map((p) => p.sec_uid).join("','")}'（**所有私信对象**的稳定 id，一个一个发 —— 每次调用只给一个 id）\n`
-          + `      - to = '${dmPeersOf().filter((p) => p.nick).map((p) => p.nick).join("','")}'（对应的昵称，同序）\n`
-          + `      - reason = 为什么值得看，30-80 字\n`
-          + `      - confirm = true\n`
-          + `      ⚠️ 不要再单独调 \`douyin_dm\` 补文字 —— reason 会自动排成「先卡片、后理由」\n`
-          + `   ② 发完在报告里写一行「已发卡片：<视频ID>」`,
+          + `   ① **给名单里的每一个人都发一整套**（卡片 + reason 文字成对，缺一不可）：\n`
+          + `      - 对每个人各调一次 \`douyin_share_card\`，参数：\n`
+          + `        · aweme_id = 推荐那条的 ID（每个人都发同一条视频）\n`
+          + `        · to_id = 这个人的稳定 id；to = 这个人的昵称（**一次调用只发一个人**）\n`
+          + `        · reason = 为什么值得看，30-80 字（同一段理由发给每一个人）\n`
+          + `        · confirm = true\n`
+          + `      - 🔴 **铁律：卡片和 reason 文字永远发给同一个人** —— 绝不许把文字发给 A、卡片发给 B\n`
+          + `      - ⚠️ reason 会自动排在卡片后面（先卡片、后文字），不要再单独调 \`douyin_dm\` 补文字\n`
+          + `   ② 全部发完后，在报告里写一行「已发卡片：<视频ID> → <收件人1、收件人2>」`,
           (commentOn
             ? `📝 自动评论也开着：每轮最多 ${Number(cfg.commentPerRun) || 0} 条，每条 **≤120 字**，`
               + `**正文必须以「@${cfg.mentionName} 」开头**。发前先调 \`douyin_comment_status\` 确认 allowed=true。`
