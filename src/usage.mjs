@@ -69,10 +69,10 @@ export function summary() {
   const recent = db.prepare("SELECT at, kind, model, prompt_tokens, completion_tokens, total_tokens, cost FROM token_usage ORDER BY id DESC LIMIT 50").all()
   const pricing = { models: loadConfig().pricing?.models || {}, default: loadConfig().pricing?.default || { input: 4, output: 16 } }
   return {
-    today: { ...todayS, cost: Number(todayS.cost.toFixed(4)) },
-    month: { ...monthS, cost: Number(monthS.cost.toFixed(4)) },
-    total: { ...allS, cost: Number(allS.cost.toFixed(4)) },
-    byKind: byKind.map((k) => ({ ...k, cost: Number(k.cost.toFixed(4)) })),
+    today: { ...todayS, cost: Number(todayS.cost.toFixed(2)) },
+    month: { ...monthS, cost: Number(monthS.cost.toFixed(2)) },
+    total: { ...allS, cost: Number(allS.cost.toFixed(2)) },
+    byKind: byKind.map((k) => ({ ...k, cost: Number(k.cost.toFixed(2)) })),
     trend,
     recent,
     pricing,

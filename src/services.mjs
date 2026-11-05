@@ -12,7 +12,6 @@ import { DatabaseSync } from 'node:sqlite'
 import { loadConfig, resolveBili, resolveDouyin, KIT_DIR } from './config.js'
 
 const RING_ROOT = 'D:/我的电脑/桌面/插件/环形的心'
-const BRIDGE_STATE = 'D:/我的电脑/文档/deepseek-harness/default-workspace/qq-bridge/state'
 const SHENGLAI_LOG = 'D:/AI/声音工坊/panel.log'
 
 export const SERVICES = [
@@ -22,14 +21,11 @@ export const SERVICES = [
   { id: 'liuying', name: '留影 · 视觉接入', port: 5188, path: '/' },
   { id: 'shenglai', name: '声来 · 语音工作台', port: 17878, path: '/' },
   { id: 'snowluma', name: 'SnowLuma · WebUI', port: 5099, path: '/' },
-  { id: 'bridge', name: 'qq-bridge · QQ 桥接', port: 3100, path: '/' },
 ]
 
 export const LOGS = [
   { id: 'kit', label: '刷视频 · kit.log', file: path.join(process.env.KIT_DIR || '', 'state', 'kit.log') },
   { id: 'kitweb', label: '刷视频工作台 · web.log', file: path.join(process.env.KIT_DIR || '', 'state', 'web.log') },
-  { id: 'bridge', label: 'QQ 桥接 · bridge.log', file: BRIDGE_STATE + '/bridge.log' },
-  { id: 'activity', label: 'QQ 桥接 · 活动日志', file: BRIDGE_STATE + '/qq-activity.log' },
   { id: 'voice', label: '声来 · panel.log', file: SHENGLAI_LOG },
 ]
 

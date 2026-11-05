@@ -43,5 +43,10 @@
   "web": {
     "port": 8412,
     "host": "127.0.0.1"
+  },
+  "agent": {
+    "freeRun": true,
+    "maxRoundsPerDay": 0,
+    "maxCostPerDay": 0
   }
 }
