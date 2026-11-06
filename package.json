@@ -1,9 +1,9 @@
 {
   "name": "snow-video-kit",
-  "version": "0.3.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
-  "description": "刷视频软件：依附 SnowLuma 运行，QQ 智能体可接入（stdio/HTTP MCP）——video_* 工具 + 跨平台记忆库 + key 大脑 + 花费面板 + 环形的心插件适配",
+  "description": "刷视频软件：依附 SnowLuma 运行，QQ 智能体可接入（stdio/HTTP MCP）——video_* 工具 + 跨平台记忆库 + key 大脑 + 花费面板 + 环形的心适配器 + 她想刷就刷",
   "keywords": [
     "snowluma",
     "onebot",
