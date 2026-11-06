@@ -117,8 +117,8 @@
           </div>
         </div>
         <div class="hero-chips">
-          <span class="chip" id="chip-qq"><span class="dot" id="dot-qq"></span>QQ 检测中</span>
-          <span class="chip" id="chip-brain"><span class="dot" id="dot-brain"></span>大脑 检测中</span>
+          <span class="chip" id="chip-qq"><span class="dot" id="dot-qq"></span><span id="chip-qq-t">QQ 检测中</span></span>
+          <span class="chip" id="chip-brain"><span class="dot" id="dot-brain"></span><span id="chip-brain-t">大脑 检测中</span></span>
           <span class="chip" id="chip-cost">今日 ¥0.00</span>
         </div>
         <div class="bars" id="hero-bars"></div>
@@ -361,8 +361,10 @@ async function poll() {
     $('hero-total').textContent = biliToday + douyinToday
     $('hero-bili').textContent = biliToday
     $('hero-douyin').textContent = douyinToday
-    $('chip-qq').innerHTML = `<span class="dot ${s.qq.online ? 'ok' : 'bad'}"></span>` + (s.qq.online ? 'QQ 在线' : 'QQ 未连接')
-    $('chip-brain').innerHTML = `<span class="dot ${s.brain.configured ? 'ok' : 'warn'}"></span>` + (s.brain.configured ? '大脑 ' + s.brain.model : '大脑未配置')
+    $('chip-qq-t').textContent = s.qq.online ? 'QQ 在线' : 'QQ 未连接'
+    $('chip-brain-t').textContent = s.brain.configured ? '大脑 ' + s.brain.model : '大脑未配置'
+    $('dot-qq2').className = 'dot ' + (s.qq.online ? 'ok' : 'bad')
+    $('dot-brain2').className = 'dot ' + (s.brain.configured ? 'ok' : 'warn')
     $('chip-cost').textContent = '今日花费 ¥' + Number((s.usageToday && s.usageToday.cost) || 0).toFixed(2)
     const maxN = Math.max(1, ...(s.series || []).map(d => (d.bili || 0) + (d.douyin || 0)))
     $('hero-bars').innerHTML = (s.series || []).map(d => {
