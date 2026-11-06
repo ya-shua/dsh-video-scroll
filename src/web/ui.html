@@ -91,7 +91,6 @@
       <button data-v="memory">记忆库</button>
       <button data-v="usage">花费</button>
       <button data-v="services">服务</button>
-      <button data-v="tools">她的工具</button>
       <button data-v="logs">运行日志</button>
     </nav>
     <div class="railfoot">
@@ -287,14 +286,6 @@
         <button class="ghost" id="mem-run">执行</button>
         <div class="logbox" id="mem-sql-out" style="margin-top:8px">—</div>
       </details>
-    </div>
-
-    <div id="view-tools" class="view" style="display:none">
-      <h2>她的工具（QQ 里她自己就能调用）</h2>
-      <div class="card tools" style="max-width:720px">
-        <ul id="tool-list" style="padding-left:18px"></ul>
-        <p class="muted">把 <code>src/kit-mcp.mjs</code> 挂进 DSH 的 MCP 列表后，这些工具就会出现在她的工具面板里；将来大脑脱离 DSH（ring-bridge 链路）也可以直接复用同一份。</p>
-      </div>
     </div>
 
     <div id="view-logs" class="view" style="display:none">
@@ -517,11 +508,6 @@ async function loadBot() {
       : '<span class="err">记忆库文件缺失</span>'
   } catch (e) { toast('统计失败：' + e.message) }
 }
-async function loadTools() {
-  try { const t = (await api('/api/tools')).tools
-    $('tool-list').innerHTML = t.map(x => `<li><code>${x.name}</code> — ${x.description}</li>`).join('')
-  } catch { $('tool-list').innerHTML = '<li>读取失败</li>' }
-}
 // ── 左下角更新组件：状态提示 + 可交互一键更新 ──
 let updInfo = {}
 async function updateCheck(silent) {
@@ -573,7 +559,7 @@ async function updateRun() {
 }
 $('upd-btn').onclick = updateRun
 updateCheck(true)
-loadBrain(); loadTools(); poll(); setInterval(poll, 6000)
+loadBrain(); poll(); setInterval(poll, 6000)
 </script>
 </body>
 </html>

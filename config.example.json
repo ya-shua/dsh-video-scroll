@@ -6,8 +6,8 @@
     "webuiUrl": "http://127.0.0.1:5099"
   },
   "brain": {
-    "baseUrl": "https://maas.qianwenaiapi.com/compatible-mode/v1",
-    "model": "deepseek-v4.1-flash",
+    "baseUrl": "https://api.deepseek.com/v1",
+    "model": "deepseek-chat",
     "enabled": true,
     "maxToolRounds": 14,
     "temperature": 0.6
@@ -24,29 +24,26 @@
     "home": "",
     "node": "",
     "python": "",
-    "toolsDir": "D:\\我的电脑\\桌面\\插件\\刷视频插件\\dsh-video-scroll\\douyin\\tools",
+    "toolsDir": "",
     "evidenceLimit": 12,
     "perDay": 10,
     "autoSend": false
   },
   "schedule": {
     "enabled": false,
-    "noon": [
-      "12:00",
-      "14:00"
-    ],
-    "night": [
-      "00:30",
-      "08:30"
-    ]
+    "noon": ["12:00", "14:00"],
+    "night": ["00:30", "08:30"]
   },
   "web": {
     "port": 8412,
     "host": "127.0.0.1"
   },
   "agent": {
-    "freeRun": true,
+    "freeRun": false,
     "maxRoundsPerDay": 0,
     "maxCostPerDay": 0
+  },
+  "memory": {
+    "dbPath": ""
   }
 }
