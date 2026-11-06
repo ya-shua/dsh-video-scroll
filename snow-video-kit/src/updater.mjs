@@ -34,16 +34,16 @@ export function remoteName() {
 /**
  * ⭐ 2026-11-07：私有仓库的运行时凭据。
  *    token 只从本机文件临时读进内存拼 URL，**不写进任何文件、不打日志**（出错文本自动打码）。
- *    没有 token 文件时退回原 URL（公开仓也够用）。
+ *    token 文件约定在桌面 token.txt（按当前用户解析，不硬编码机器路径）；没有时退回原 URL。
  */
-const TOKEN_FILE = 'C:/Users/Lenovo/Desktop/token.txt'
+const TOKEN_FILE = path.join(process.env.USERPROFILE || 'C:/Users/' + process.env.USERNAME, 'Desktop', 'token.txt')
 export function scrubSecret(s) {
   try {
     const tok = fs.readFileSync(TOKEN_FILE, 'utf8').trim()
     return tok ? String(s).split(tok).join('***') : String(s)
   } catch { return String(s) }
 }
-function fetchTarget() {
+export function fetchTarget() {
   try {
     const url = execFileSync(fs.existsSync(GIT) ? GIT : 'git', ['remote', 'get-url', 'origin'], { cwd: KIT_DIR, timeout: 8000, encoding: 'utf8' }).trim()
     const m = /^https:\/\/github\.com\/([^/]+)\//.exec(url)
