@@ -42,6 +42,7 @@ const click = async (x, y) => {
 }
 
 try {
+  await send('Page.navigate', { url: `https://www.douyin.com/video/${AID}` })
   /**
    * 🔴 2026-10-29 实测（本机必现）：抖音视频页加载约 2 秒后，前端会 `replaceState` 把地址
    *    改成 `/chat` —— 页面被换成私信页，分享图标消失 ⇒ `card-share.mjs` 永远报「分享面板没展开」。
@@ -51,21 +52,18 @@ try {
   await send('Page.addScriptToEvaluateOnNewDocument', {
     source: `(function(){var H=window.History.prototype;['pushState','replaceState'].forEach(function(k){H[k]=function(){}});})();`,
   })
-  await send('Page.navigate', { url: `https://www.douyin.com/video/${AID}` })
-
-  let iconPos = null
-  for (let i = 0; i < 40; i++) {
-    await sleep(250)
-    const r = JSON.parse(await ev(`(function(){
+  let pos = { x: 0, y: 0 }
+  for (let _w = 0; _w < 20; _w++) {
+    await sleep(500)
+    pos = JSON.parse(await ev(`(function(){
       var ic=document.querySelector('[data-e2e="video-share-icon-container"]');
       if(!ic) return '{}';
-      var b=ic.getBoundingClientRect();
-      return JSON.stringify({x:Math.round(b.x+b.width/2),y:Math.round(b.y+b.height/2)});
+      var r=ic.getBoundingClientRect();
+      return JSON.stringify({x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)});
     })()`))
-    if (r.x) { iconPos = r; break }
+    if (pos.x) break
   }
-  const pos = iconPos
-  if (!pos) { out({ ok: false, error: '找不到分享图标（视频页没加载好）' }); process.exit(1) }
+  if (!pos.x) { out({ ok: false, error: '找不到分享图标（视频页没加载好）' }); process.exit(1) }
 
   // 真实轨迹 hover（必须；el.click() 打不开）
   await mv(20, 20); await sleep(250)
@@ -74,15 +72,12 @@ try {
     await sleep(70)
   }
   await mv(pos.x, pos.y)
+  await sleep(2000)
 
-  let panel = ''
-  for (let k = 0; k < 12 && !panel; k++) {
-    await sleep(400)
-    panel = await ev(`(function(){
-      var sc=document.querySelector('[data-e2e="video-share-container"]');
-      return sc ? (sc.innerText||'').replace(/\\s+/g,' ').slice(0,400) : '';
-    })()`)
-  }
+  const panel = await ev(`(function(){
+    var sc=document.querySelector('[data-e2e="video-share-container"]');
+    return sc ? (sc.innerText||'').replace(/\\s+/g,' ').slice(0,400) : '';
+  })()`)
   if (!panel) { out({ ok: false, error: '分享面板没展开' }); process.exit(1) }
 
   // --peek：把面板里每一行连同它 fiber 里的 id 都打出来（排查重名用）

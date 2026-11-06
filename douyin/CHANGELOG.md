@@ -9,7 +9,438 @@
 
 ---
 
+## 0.7.3 — 2026-11-05（批量修复：17 个隐藏 bug，含 3 个隐私/凭证问题）
+
+> 这次是把「装插件的人会撞上、但自己解决不了」的问题集中修了一批。
+> 来源：B 站使用者反馈（设置页卡「读设置中」）+ 我自己按「全新用户 / 已装用户 / mac-Linux 用户 /
+> 网络差用户」逐个模拟安装启用流程挖出来的。每一条都有实测或对照证据，每条都补了防回归断言。
+
+## 🔴 会让你「用不了」的
+
+**1. 设置页一直停在「读设置中」**（B 站使用者反馈）
+
+面板加载只试一次、没有重试，而且失败信息被 `if (alive)` 挡住 —— 面板在加载途中被宿主重新挂载时
+错误直接丢掉，界面既不报错、也不出「重新读取」按钮。刚装完、刚重启 DSH 时最容易撞上。
+→ 改成失败自动重试 3 次（间隔递增），重试期间显示「正在重试（第 N/3 次）：原因」，
+3 次都失败才给「重新读取」按钮。还修了一个隐蔽的坑：三次重试共用同一个超时控制器，
+第一次 12 秒超时 abort 之后后面所有重试都会立刻失败。
+
+**2. mac / Linux 装好了环境，功能却说「还没装运行环境」**
+
+`index.js` 有 3 处、`tools/forward-run.mjs` 有 1 处、`tools/api-reply.py` 有 1 处**写死了 Windows 的 venv 路径**
+（`.venv\Scripts\python.exe`）。mac / Linux 上 venv 的 python 在 `.venv/bin/python`，那个文件永远不存在 ⇒
+用户装完环境、扫完码，点「读通知」直接报「还没装运行环境」，**他会以为装失败、反复重装**。
+→ `lib/paths.mjs` 新增唯一入口 `venvPython()`（按平台给路径），所有调用点统一走它。
+
+**3. 环境装坏一半，面板却显示「环境就绪」**
+
+`setupFiles()` 只检查目录存不存在，不检查能不能真的 import。实测造一个「目录都在、包是空壳」的环境，
+它返回 `pythonReady: true` ⇒ 面板显示就绪，用户点「跑一轮」才失败，报错还含糊。
+→ 新增真 import 探针；`venvReadyNow()` 改用它判断。
+
+**4. 安装可能永远卡在「安装中…」**
+
+装依赖用的 `spawnTo` **没有超时**。`pip install` 卡在镜像站/代理上时 Promise 永不返回 ⇒
+`installing` 永远 true ⇒ 面板永远「安装中…」、按钮全灰，用户只能重启赌一把，
+而重启后 `.venv` 可能还是半成品。
+→ 加超时（默认 10 分钟），超时先 SIGTERM、5 秒后还在就 SIGKILL，并写明确原因。
+`probeCmd`（探测 `uv --version`）也加了 20 秒超时。
+
+**5. 没登录时 4 个 Python 脚本抛 `FileNotFoundError` 堆栈**
+
+`notice-read` / `api-comments` / `api-reply` / `forward-pick` 都是模块顶层裸读 `douyin_cookie.txt`。
+新用户装完环境、还没扫码就点工具时，会看到一大段 traceback —— **以为插件装坏了**。
+而且自动值班的 `buildEvidence` 每轮都要走 `forward-pick.py`，整轮会直接失败。
+→ 统一加兜底，读不到就输出结构化错误并 `exit(2)`：
+```json
+{"ok": false, "error": "还没有登录（没有 douyin_cookie.txt）",
+ "hint": "先在设置页扫码登录（或粘一条 Cookie），再读通知", "stage": "cookie"}
+```
+上层 `index.js` 也修了：原来只读 `stderr`，但结构化错误在 `stdout` ⇒ 用户只看到笼统的「取候选失败」。
+现在失败时先解析 stdout 的 JSON，把 `error` / `hint` 透出来。
+
+## 🔴 隐私 / 凭证
+
+**6. Cookie 带 BOM 会让所有请求崩**
+
+用户在 Windows 记事本 / PowerShell 里**粘贴 Cookie**，文件会带 UTF-8 BOM（U+FEFF）。
+带 BOM 的 Cookie 塞进 `curl_cffi` 请求头会直接：
+```
+UnicodeEncodeError: 'latin-1' codec can't encode character '\ufeff' in position 0
+```
+这个报错**完全不指向「文件带 BOM」**，用户只会觉得插件坏了 —— 而设置页明确支持「粘一条 Cookie」，
+这条路一定会有人走。**6 个脚本全中**（各自裸读 cookie，谁都没剥 BOM）。
+→ `tools/_home.py` 新增 `read_cookie_text()` 作为**读 Cookie 的唯一入口**，剥 BOM + 兜底；6 个脚本全部改走它。
+
+**7. Slack webhook 地址不脱敏，凭证进日志**
+
+`maskUrl` 只按「路径末段 ≥16 字符」判 token，而 **Slack 的 webhook 末段往往只有 8~12 个字符** ⇒
+整条 URL（含完整凭证）被原样写进 `duty.log`。实测：
+```
+https://hooks.slack.com/services/T00AAAAAA/B00BBBBBB/abcdefghijk  →  没打码
+```
+（Discord / 飞书 / 企微 / 钉钉 都能正常打码，只有 Slack 漏）
+Slack 的 webhook URL 本身就是 credential —— 拿到就能往群里发任意消息。
+→ `maskUrl` 先按已知平台形状处理：Slack 的 `/services/` 后面整段都算凭证，打码成 `/services/***`。
+
+## 🔴 数据安全
+
+**8. 状态文件不是原子写，并发下会读到半截 JSON**
+
+`writeJson` 直接覆盖写。并发压测（一个进程狂写、另一个进程狂读）：
+
+| 写法 | 读取次数 | 读到坏 JSON |
+|---|---|---|
+| 直接 `writeFileSync` | 1582 | **16 次** |
+| 写 tmp 再 `rename`（原子） | 2024 | **0 次** |
+
+而 `readJson` 遇到坏 JSON 会返回 fallback ⇒ 后果很隐蔽：
+- **配置**被读成坏 JSON → 回退默认值 →「我明明设过了，怎么又变回去了」
+- **发送状态机**被读成坏 JSON → 当成「没发过」→ **同一条回复可能重复发出**（发出去了删不掉）
+- **限流冷却**被读成坏 JSON → 当成「没被限流」→ 接着发就撞 403
+- **端口记录**被读成坏 JSON → 白起一个浏览器
+
+多窗口 / 多 profile / 后台轮次与面板同时写就会撞上。
+→ `writeJson` 改成**原子写**（写 `<file>.tmp-<pid>-<rand>` 再 `renameSync`，失败回退直接写）；
+`writeRuntime`、`comment-send` 两处状态写、`index.js` 的发送闸/冷却窗口两处写，全部改走它。
+
+**9. 我自己引入的宿主卡顿（差点重犯 0.5.7 的卡死老坑）**
+
+修第 3 条时，我在 `venvReadyNow()` 里加了同步 `spawnSync` 起 python 做 import 探针 ——
+而它挂在 `/status`、`/run` 这些 **HTTP 接口**上，实测每次阻塞宿主 **659ms**。
+这正是 0.5.7「装插件整个 DSH 卡死」的同一类错误，我自己又踩回去了。
+→ 改成**两段式**：同步快速路径只看目录（**0ms**）+ 后台异步探针校准缓存。
+实测：同步路径 0ms（原 659ms）；探针后台跑 727ms 期间事件循环正常转了 23 次，宿主完全没被摁住。
+
+## 🟡 会让你「以为没事其实没收到」
+
+**10. mac / Linux 用户默认收不到任何通知**
+
+`notifyMode` 默认是 `toast`（Windows 通知），但 `lib/toast.mjs` 写死非 Windows 直接跳过。
+所以 mac / Linux 用户装好、登录好、跑完一轮 —— **屏幕上什么都不会弹**，报告只写进文件。
+而且面板和体检都不提示这件事，用户会以为插件没跑。
+→ `/status` 增加 `toastSupported` / `platform`；面板在非 Windows 上标注「这个平台收不到」
+并建议改用 Webhook 或仅保存文件；体检（doctor）补一行「通知通道」。
+
+## 其它
+
+- **文档里的「预检 N 项」过期**：README / AGENTS / PUBLISH 三处还写着 374，实际已经涨到 402。
+  而且这三处曾经各写各的（110 / 59 / 198），用户根本不知道信哪个。
+  → 统一改成 402 项，并加断言：**三处写的数字必须一致**。
+
+## 验证
+
+- `node selfcheck.mjs` = **402 通过 / 0 失败**（新增 13 条守卫，每条都做过**负向验证**：
+  故意破坏 → 报红 → 恢复 → 绿）
+- 设置页渲染 **42 个场景通过**（新增「非 Windows 明说收不到通知」等场景）
+- 全部测试套（Node 7 组 + Python 2 组）与 `py_compile` 全过；MCP 13 工具 selftest 通过
+- **全新安装实测**：建 venv 12 秒 → 装依赖 3 秒 → 探针识别就绪
+- **并发压测**：原子写 2024 次读 0 次坏 JSON（原来 16 次）
+- **BOM Cookie 实测**：修复前 `UnicodeEncodeError` 崩溃，修复后正常返回 `code: 8`
+- **真机**：doctor 13 项全绿、`session-guard` 判 alive、`forward-pick` 正常取候选
+- 隐私扫描（全仓库跟踪文件）：**0 命中**
+
+## 怎么升级
+
+```bash
+git -C <你的插件目录> pull
+```
+
+然后**重启一次 dsh**。配置和登录态不受影响（本版没有改任何配置项）。
+
+⚠️ **用过 Slack webhook 的人**：翻一下自己的 `duty.log`，里面可能有明文 webhook 地址；
+建议在 Slack 里重新生成一个 webhook，并更新设置页里的地址。
+
+## 完整改动
+
+见 [CHANGELOG.md](https://github.com/NEWJO123/dsh-douyin-scroll/blob/main/CHANGELOG.md)。
+
+---
+
+## 0.7.2 — 2026-11-05（修复：私信回复把「发送方读不出来」当成了「不能回」）
+
+> 对照 [LockyBee/dsh-douyin-agent Issue #17](https://github.com/LockyBee/dsh-douyin-agent/issues/17) 发现的同类坑。
+
+## 问题
+
+`lib/dm-reply.mjs` 的 `replySnapshot()` 原来这样判：
+
+```js
+if (last.from !== 'them') return { reason: 'unknown_sender', note: '最新一条消息的发送方不明确，没有发送' }
+```
+
+最新一条消息的发送方读不出来时，整条「DSH 回复」直接跳过，而且下次还是同一条 —— **永久发不出去**。
+病根是把「**读不出来**」当成了「**判定为不能回**」。
+
+## 修法：不靠猜，也不绕开
+
+回复私信走的是 `tools/im-http.py` 的接口路径 —— **发送者是协议里的 uid（field7），与自己的 uid 一比就是确定答案**，
+这条路根本不会出现「认不出」。会认不出的只有浏览器 DOM 路径（靠头像在左还是右猜），
+那条路径本来就不该参与「要不要发」的判断。
+
+所以：
+
+- 发送方读不出来 ⇒ 视为**数据不可信**，明确报 `untrusted_sender` 并提示改用接口路径重读；
+  **不拿猜测结果去决定回复谁**（不再「跳过它去回上一条」）。
+- 最后一条明确是我发的 ⇒ 仍然跳过（防重复回复，安全语义不变）。
+- 最后一条是对方发的但没有文字（图片/表情/卡片）⇒ `unsupported_message`，不回更早的消息。
+
+## 测试
+
+`tests/dm-reply.test.mjs` 21/21：新增「方向不明的尾巴报不可信、绝不靠猜回复」；
+原 `unknown_sender` 用例改 `untrusted_sender`（语义变了，断言跟着变）。
+
+## 怎么升级
+
+```bash
+git -C <你的插件目录> pull
+```
+
+然后重启一次 dsh。配置和登录态不受影响（本版没有改任何配置项）。
+
+## 完整改动
+
+见 [CHANGELOG.md](https://github.com/NEWJO123/dsh-douyin-scroll/blob/main/CHANGELOG.md)。
+
+---
+
+## 0.7.1 — 2026-11-05（修复：评论区回复必挂「翻页后找不到目标评论」）
+
+> 2026-11-03 起所有版本的评论回复功能全挂（0.6.0 / 0.6.1 / 0.7.0 都中）。这个修复让回复链路活了。
+
+## 问题
+
+点回复，永远报「翻页后仍没有找到目标评论」——连热评第一都"找不到"。什么都没发出去（安全闸拦着），但也一条都回不了。
+
+**根因**（A/B 对照 + 双版本对照实测）：发布前的页内列表查询（判楼根 / 取原文）会把**站点自己的评论分页打毒**——发过查询后，评论区怎么滚都不再加载新楼层，发布器永远等不到目标行出现，只能拒绝。同一份代码 11-02 通、11-03 起必死，是抖音收紧了这条接口的连发敏感度，不是哪个版本改坏的（v0.6.0 今天复测同样挂）。
+
+## 修法：发布链路零列表请求
+
+- **删掉**发布前的两次列表查询（楼根解析 + 取原文）。
+- 楼层关系改为**从目标行自己身上就地读**：每条评论行自带 `replyId`（"0"=顶层，非 0 = 楼根）与 `replyTotal`，滚动找到目标行的同时就判定完毕。
+- 没传楼根时自动就地判定（`found-level1` / `found-in-thread` / `has-replies` 三种结论）；页面滚不到目标行就明确拒绝（need_root，不瞎猜）。
+- 传入楼根时，发布器拿目标行核对楼层关系，行与传入不符就拒绝。
+- **全部原有保险保留**：发布请求逐字比对闸（作品/正文/楼根/回复 ID）、发完重读那一楼核实落位（三态）、403 限流明确报告不重试、判定不出不瞎猜。
+- 新增单测：就地判定顶层 / 楼中楼、找不到目标行拒绝、身份冲突拦截（13/13）。
+
+## 验证
+
+- `node selfcheck.mjs` = **389 通过 / 0 失败**；全部测试套通过
+- Windows 真机实发：回复成功，服务端返回 `cid`，`reply_id` = 目标楼根、`reply_to_reply_id` = 0（回顶层的正确形态）
+
+## 怎么升级
+
+```bash
+git -C <你的插件目录> pull
+```
+
+然后**重启一次 dsh**。按版本号装的：`dsh plugin --profile <profile> add dsh-douyin-scroll@0.7.1`。
+
+配置和登录态不受影响（都在 `<DSH_HOME>/douyin-duty/`，本版没有改任何配置项）。
+
+## 完整改动
+
+见 [CHANGELOG.md](https://github.com/NEWJO123/dsh-douyin-scroll/blob/main/CHANGELOG.md)。
+
+---
+
+## 0.7.0 — 2026-11-04（设置页体验重做 + DSH 回复 + 手动额度解耦 · 社区 PR #17）
+
+> 来自社区 PR #17（yitacls），按 Issue #12 的 RFC 分项实现。设置页大面积重排，属次版本号。
+
+- 首次使用明确环境、登录、运行顺序；消息与人设入口常驻，运行偏好与帮助按需展开。
+- 展示本轮状态、最近推荐、今日全部和格式化日报；本轮记录与原始日志默认折叠。
+- 自动发送精简为总开关与三组设置；接收人和 @ 名单通过可搜索弹窗管理，保存失败保留原选择，聊天详情默认折叠。
+- 消息区默认优先私信，按分类独立读取；列表与对话原位切换，记忆详情折叠，清空前确认。私信和评论统一为「DSH 回复」，点击后由当前模型结合人设和上下文生成并发送，移除手工回复表单，增加进度查询、断线恢复、发送前复核和防重复记录。
+- **「DSH 回复」的口径**：点击按钮即视为授权（生成 + 发送一步完成），生成结果不先行展示；发送成功后锁定，已发送或结果不明时阻止重复发送。评论与私信发出后不可撤回。
+- 手动每轮推荐数量独立于自动日额度；新增按轮记录与去重统计，历史来源不明的推荐单列。
+- 视频/图文评论回复保留作品与楼根定位；生成使用服务端核实的原评论，已发送、落位异常或发送未确认都按原评论记录，不因重新生成正文而重复发布。
+- 修正原生评论定位将同级评论列表里的 ID 当成当前行 ID 的问题；精确匹配当前评论记录，避免多条可见记录误命中，发布前继续核验原生请求的目标与楼根。
+- 自动计划支持统一重复星期和多个时间窗口，兼容旧配置，跨午夜按窗口开始日记账。
+- 人设编辑区加大并支持扩大、撤销与草稿保留；自动计划保留中午、夜间默认时段开关与可选自定义时段，统一保存并校验无效和重叠时段，保留编辑前的执行记录。关于独立放在页尾，合并重复更新入口；推荐数量、日报和通知表单适配窄屏。
+- 保留 0.6.1 的 macOS / Linux 扫码登录兼容修复，并补了跨平台回归与 `windowsHide`、CDP 超时。
+- 验证：selfcheck **389/0** + 设置页渲染 40 场景 + Node 测试 8 组 + Python 测试 2 组全过 + Windows 真机 `start`/`close` 无残留。
+
+---
+
+## 0.6.1 — 2026-11-04（修复：macOS / Linux 扫码登录误报「浏览器还没开」· Issue #15）
+
+> 修复来自社区 PR #16（icatw）—— 根因是 0.5.9 修 Issue #11 时只覆盖了 Windows。
+
+- **`tools/qr-login.mjs` 进程检测原来写死 `powershell.exe`**：mac/Linux 上 `execFileSync` 必抛、被 `catch` 吞掉，
+  `profileInUse()` 恒返回空 ⇒ `start` 以为没浏览器占着 profile ⇒ 另挑端口、用同一个 `--user-data-dir`
+  起第二个 Chrome（被拒秒退）⇒ 在错端口等满 30 秒 ⇒ 报「登录用的浏览器还没开」。
+  **用户明明已经扫上码，Cookie 却永远导不出来。**
+  改成跨平台 `profileCommandLines()`：Windows 保持原 PowerShell 探测（Issue #11 语义不变），
+  macOS / Linux 走 `ps -axo pid=,command=` 按 profile 路径字面匹配，排除 `--type=` 子进程与自身。
+- **`start` 的复用分支拿 `PORT=0` 探活**：新进程里端口只有 `QR_CDP_PORT` 环境变量才有值，
+  `fetch('http://127.0.0.1:0/json/version')` 必失败 ⇒「登录窗口开着就复用」这条路径**在任何平台都走不到**。
+  新增 `liveQrPorts()`：从活进程命令行读 `--remote-debugging-port`（只认 ≥9374，避开无头值班的 9334–9373）并逐个验活。
+- **`loadQrPort()` 用了未导入的 `readFileSync`** ⇒ 每次抛 `ReferenceError` 被吞掉，「记住上次端口」从未生效（静默失败）。已补导入。
+- **`discoverQrPort()` 优先用活进程端口**：跨 DSH 重启也能找回登录窗口（`check` / `shot` / `watch` 都不用再传端口）。
+- **`frontWindow()` 跨平台**：macOS 用 `osascript` 激活浏览器 App（App 名从安装路径反推，Chrome / Edge / Chromium 都认）；Linux 安静跳过。
+- **`closeProfileChrome()` 改 SIGTERM 优雅关闭**（不丢尚未落盘的新 Cookie）；`close` 子命令的进程枚举同步改走 `profileCommandLines()`。
+- 报告与修复：Issue #15 / PR #16 · icatw（macOS 15 + Chrome 156 真机验证齐全 —— 感谢！）。
+- 验证：selfcheck **374/0** + Windows 真机 `start` / `close` 实测无残留。
+
+---
+
+## 0.6.0 — 2026-11-03（图文评论回复 + 日志时区修复）
+
+> 功能部分来自社区贡献（yitacls），日志时区修复来自 Issue #14（404notfoundzzy）。
+
+- **图文 `/note/` 作品的评论回复**：通知、DSH 工具与 MCP 保留作品路由、类型及楼根；`/note/` 图文和视频共用回复入口。
+- 发布改由抖音原生前端构造写入凭据，发送前检查作品、正文、楼根和目标评论，只放行一次；成功必须有服务端 `cid`，并回读确认落位。
+- 评论面板与定位忽略隐藏的旧 DOM；定位读取先于原生分页，避免分页请求相互干扰。普通读取遇到 `status_code=5` 等失败时进入已有浏览器兜底，仍失败则明确报错。
+- 工具参数使用 DSH 支持的整数类型，修复新参数导致插件激活失败的问题。
+- 本地图文实测：带调试前缀的回复拿到 `cid`，回读为目标楼根下的 `level=2`；发送确认开关保持原状。
+- **duty.log 时间戳从 UTC 改为本地时区**（Issue #14）：跨日时不再出现「日志是 02 号、弹窗是 03 号」的错位 —— 格式如 `2026-11-03T02:30:00.123+08:00`，仍可排序、无歧义。
+
+---
+
+## 0.5.9 — 2026-11-01（修复：只装 Edge 的机器扫码登录必失败 · Issue #11）
+
+- **qr-login.mjs 四处进程检测写死 chrome.exe**（占用检测 ×2 / frontWindow / close）：
+  只装 Edge 的机器上，后台无头 msedge 占着 chrome-profile 时检测「看不见」⇒
+  登录用的有头浏览器秒退 ⇒「出二维码失败」。
+  改成**按命令行里的 profile 路径认进程**（排除探测用的 powershell 自身与 --type= 子进程），
+  frontWindow 加 msedge，close 子命令同步修正。
+- **cdpTargets 超时把「进程起没起来 / 是不是秒退」带上**：真因不再藏在一句「浏览器还没开」里。
+- A/B 实测：占着 profile 的 msedge，旧检测 **0 命中（隐身）**、修复后 close 优雅关掉。
+- 报告：Issue #11 · superscc（证据 / 复现 / 修法 / 本地验证齐全 —— 感谢！）。
+- 验证：selfcheck 371/0 + 面板渲染检查 + MCP 13 工具。
+
+---
+
+## 0.5.8 — 2026-10-31（三个 DSH 环境兼容修复 · 社区 PR #10 · yitacls）
+
+- **代理用户**：NO_PROXY 里带 `[::1]` 时 httpx 解析直接崩，挂系统代理的机器 python 侧请求全挂
+  —— 修复后 A/B 实测：修复前崩、修复后同环境拉回 20 条评论。本版修在 api-comments.py。
+- **扫码登录不再丢登录态**：关登录浏览器从强杀改成 CDP 优雅关闭、等 Cookie 落盘 ——
+  「明明扫了码却没登进去」的嫌疑真凶。
+- **设置页 404 / 卡「读设置中」**：webServer 服务晚于插件就绪时路由注册不上 —— 改成随服务就绪注册
+  （headless 没有该服务时照常工作，语义与 0.5.6 的 optional 化一致）。
+- 验证：selfcheck 368/0（干净克隆）+ 面板渲染检查 + MCP 13 工具。
+
+感谢 yitacls 的 PR #10。
+
+---
+
+## 0.5.7 — 2026-10-31（修复：装插件后整个 DSH 卡死）
+
+> B 站用户实测「我装这个插件 整个 dsh 就会直接卡死」。根因：插件代码跑在 DSH 宿主进程里，
+> 接口与定时器里有大量 **spawnSync 同步子进程**（扫码登录最长 120s、dsh 入口探针 25s、
+> 体检/工具调用最长 240s）—— 同步期间整个宿主被摁死：面板、HTTP、其它插件全部无响应。
+> 2026-10-24 只修过 /login/wait 一处（index.js 旧 L5305 注释），这次全修。
+
+### 修了什么
+
+- **子进程全部异步化**：runNodeTool / runPy / runnable（dsh 入口探针）/ buildEvidence / readAtMe
+  等 6 个同步封装 + 42 处调用点，换成 spawn + await —— 调用方语义不变（还是等结果再继续），
+  但宿主全程活着。**接口契约 / 返回形状 / 面板 JS / MCP 协议零改动**。
+- **扫码登录不再冻住 DSH**：出码期间（实测 9 秒）面板和其它功能照常可用。
+- **走无头浏览器的脚本加互斥闸**（im-send / card-share / qr-login / comment-api / comment-mention-ui）：
+  异步化后不再抢同一个 chrome-profile —— 这是异步化才会出现的新风险，堵在前面。
+- **未登录不自动值班**：默认时段开着但还没登录时，定时器不再白跑一轮
+  （新装机「装上去就卡死」的另一个来源；手动「现在跑一轮」不受影响）。
+- selfcheck 新增 4q 段 5 条静态守门：宿主里只许剩 nodeExe 的两个亚秒级探针，防改回去。
+
+### 谁受影响
+
+- **全新安装**：装完 → 扫码登录 → 全程不再卡死（以前点登录就冻住）。
+- **已安装**：功能与配置完全不变，唯一差别是以前会卡住的场景（登录 / 体检 / 工具调用 /
+  到点自动值班）不再冻住宿主。
+
+### 验证
+
+- selfcheck 371/0（含新增 4q 守门）+ 面板渲染检查 + MCP 13 工具
+- 真机：/status 344ms、/update 1.2s、扫码登录端到端（出码 9.2s 全程宿主可用）、
+  会话体检 / 评论 / 通知 / 推荐流 / 私信卡片全链路真跑通过
+
+---
+
+## 0.5.6 — 2026-10-30（预检能过 + 8 个 open issue 里能修的都修了）
+
+> 两个批次合成这一个对外版本：
+> ① 干净克隆上「先跑 `node selfcheck.mjs`，全部通过再装」终于能成立（原来 352 通过 / 5 失败，
+>    5 条全是自检自己的错，跟使用者的环境无关）；
+> ② 社区报的 #3 #5 #6 #7 #8（#1 #2 #4 在 0.5.1–0.5.3 已修，这次只核对）。
+> 共同点：全是「真因被吞掉 / 解释器装错」，不是新功能。
+
+### 一、桌面版后台轮次（#6，最致命）
+
+- 🔴 **`node.exe` 读不了 `app.asar`** ⇒ 每一轮 `MODULE_NOT_FOUND`。
+  `jsRunner()` 一律「有独立 node 就用它」，在任何装了独立 node 的机器上都选错。
+  ✅ 按**目标路径**分派：`jsRunnerFor(target)`，asar 内的入口交回 Electron（`process.execPath`）；
+  `runnable` + 三个候选全部换成它。
+- 🔴 **「已验证可跑」是假阳性**：`runnable` 原来是 `status === 0 || 有版本形状`，有版本号就算过。
+  ✅ 改成 **status=0 且** 带版本号 —— 假阳性比不检查更糟，它炸在最难看的时机。
+- 🔴 **`webServer` 从 inject 挪进 optional**：headless profile 里没这个服务，
+  留着 ⇒ 插件 `pending (waiting for service: webServer)` 永不激活，而值班轮偏偏用 headless 跑。
+  现在缺它只少挂面板和 `/api/douyin-duty`，取候选 / 判断 / 写报告照常。
+- 跑一轮前检查 `$DSH_HOME/profiles/<headless>` 在不在，不在就把
+  `dsh plugin --profile headless add link:<插件目录>` 打进日志（只提示，不替使用者执行）。
+
+### 二、评论 / 回评 / 通知（#7）
+
+- 🔴 **Python 里写死 `C:\Program Files\nodejs\node.exe`**（`api-comments.py` / `api-reply.py`）。
+  绿色版 / nvm / 自定义目录的机器直接 `FileNotFoundError`，这错误还被两层吞掉。
+  ✅ `_home.node_bin()` 真去找：`DOUYIN_NODE` → PATH → 家目录 `runtime.json` → 常见安装目录 → 最后才回 `"node"`。
+  找不到 node 时 `sign()` 返回**写明原因**的错误，不再是一句「签名拉不到」。
+- 🔴 **Windows GBK 控制台遇 emoji 崩在 `print()`**，`UnicodeEncodeError` 一崩整条 MCP 链就断。
+  ✅ `_home.utf8_stdio()` 统一钉 utf-8，补到 `api-reply.py` / `notice-read.py` / `session-guard.py`
+  （`api-comments.py` 之前其实也没有，一并补上）。
+
+### 三、发不出去时看不到原因（#8）
+
+- 🔴 **`ensureChrome` 只会等满 60 秒再报「连不上 CDP」**，profile 被残留进程占着这条线索全丢。
+  ✅ 分开报：进程**立刻退出**（→ 提示 profile 被占 + 给查 PID 的命令 + 指出 `SingletonLock`）
+  vs **活着但 CDP 连不上**（→ 防火墙 / 监听地址）。实测前者从 60 秒降到 **0.6 秒**报出来。
+  ⚠️ 刻意**不**自动换临时 profile 重试：登录态就在那个 profile 里，换一个等于把使用者登出。
+- 🔴 **MCP 层吞 `error`**：`douyin_share_card` 只挑 `ok / sent`，真因字段全丢。
+  ✅ 新增 `explain()` / `stderrTail()`：`error` → `hint` → `detail`，子脚本连 JSON 都没吐就给
+  `stderr_tail`，失败原因同时提到顶层。所有「没返回可解析结果」的兜底也统一带上 `stderr_tail`。
+
+### 四、安全与关键词（#5 / #3）
+
+- **webhook 目的地址校验（CWE-918）**：非 http(s)、回环、link-local、云元数据、组播一律拦；
+  局域网私有段放行（内网机器人是真实用法）。不做 DNS 解析 —— 解析完再连是 TOCTOU，防不住 rebinding，
+  不装作防住了。确实要发本机：`DOUYIN_WEBHOOK_ALLOW_LOCAL=1`。
+- **关键词从「只做标注」改成软加分**（#3 那个误会）：命中文案 / 话题的候选 ×1.35 排前面，
+  **不命中也不丢、不硬筛** —— 硬筛会把推荐流里「没写关键词但确实好看」的筛没。
+  面板和 README 都改成一句话说清「不会替你搜」。
+
+### 五、守门（selfcheck 新增 4p 段，9 条）
+
+上面每条都配了静态断言（`jsRunnerFor` 分派、`runnable` 两个条件、webServer 不在 inject、
+没有 Python 写死 node、utf-8 钉住、ensureChrome 分开报、MCP 透传、webhook 校验、关键词软加分），
+防的是「修完又被改回去」。
+
+> 现状：`node selfcheck.mjs` = **363 通过 / 0 失败**（真克隆；zip 形态 362），`tools/panel-render-check.mjs` 全通过。
+
+### 六、预检：干净克隆上「全部通过再装」终于能成立（先做的那批）
+
+> 起因：README 让使用者 `git clone` 后先跑 `node selfcheck.mjs`，「全部通过再装」。
+> 但实测**任何干净克隆都过不了**（352 通过 / 5 失败），而且 5 条全是自检自己的错，
+> 跟使用者的环境无关 —— 照着文档走第一步就被拦住。
+
+- 🔴 **4d-2 拿中性默认当"使用者的人设"来查**：原来只认 `prompts/persona.md`，
+  读不到就退到 `persona.default.md` 上查「正反对照 / 何时收着 / 称呼边界 / 身份牌」——
+  可 default 是**中性默认**，设计上就不带这些，于是「这台机器还没配过人设」被报成「人设写坏了」。
+  ✅ 改成和 `runDuty` **同一套三层解析**（`$DOUYIN_HOME/persona.md` → `prompts/persona.md` → default）：
+  有自己那份才查结构，一份都没有就明说"走中性默认"并跳过（`persona: default` 的身份牌仍由 4d-5 守）。
+  ⚠️ 闸门没松：写了自己那份但只有形容词，仍然照样报 ❌（已用"软一点，别腻"实测 3 条失败）。
+- 🔴 **`core.hooksPath` 是本地配置，`git clone` 不会带** ⇒ 新克隆读到的永远是空串 ⇒ 直接判 ❌。
+  这一项的意图是「hook 真生效」而不是「文件存在」，所以空着且**本目录就是仓库根**时
+  `git config --local core.hooksPath .githooks` 顺手挂上（可逆、不联网）；
+  指向别处（比如 `.husky`）仍然报 ❌；下载的 zip 不是仓库则只告警。
+  ⚠️ 加了一道「本目录必须是仓库根」的守卫 —— 否则 `--local` 会写进外层仓库的 config。
+- 结果：zip 形态 362 通过 / 0 失败、真 `git clone` 363 通过 / 0 失败。
+
+---
+
 ## 0.5.4 — 2026-10-26 下午（@ 多选 + 总闸 + 写入链 + 群聊 + 面板重设计）
+
 
 > 主人 2026-10-26 连续几轮定稿：@ 支持多个人、开关只当总闸、会话列表只读一次。
 > 这一版把 0.5.3 之后的一整批改动合成一个对外版本号发布。

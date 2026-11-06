@@ -27,10 +27,13 @@ import * as douyin from './douyin/index.js'
 import { startConsole } from './console/server.mjs'
 
 export const name = 'video-scroll'
-export const inject = ['webServer', 'tools', 'settings']
+// ⭐ 2026-11-07 跟进上游 0.7.3（Issue #6③）：webServer/llm 挪进 optional ——
+//    留在 inject 里 ⇒ headless 会话里插件 `pending (waiting for service: webServer)` 永远起不来。
+export const inject = ['tools', 'settings']
+export const optional = ['webServer', 'llm']
 
 export function apply(ctx) {
-  // 两个子插件各自声明 inject（webServer/tools/settings；douyin 另有 optional llm），
+  // 两个子插件各自声明 inject/optional（bili 2.5.0 仍要 webServer；douyin 0.7.3 已挪 optional），
   // ctx.plugin 会读它们模块上的静态声明并各自起 fiber —— 与原来两个独立 entry 等价。
   ctx.plugin(bili, {})
   ctx.plugin(douyin, {})

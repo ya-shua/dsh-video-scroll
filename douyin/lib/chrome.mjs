@@ -129,6 +129,19 @@ export async function ensureChrome({ url = 'https://www.douyin.com/' } = {}) {
   const profile = profileDir()
   mkdirSync(profile, { recursive: true })
 
+  /**
+   * 🔴 Issue #8①（2026-10-30）：profile 被**残留进程**占着时，新实例起来后立刻退出、端口不监听。
+   *    原来只会干等满 60 秒再报「连不上 CDP」—— 使用者完全看不出是 profile 被占。
+   *    现在分开报：**进程根本没活着** vs **活着但 CDP 连不上**，并给出查残留进程的命令。
+   *
+   * ⚠️ 刻意**不**自动换临时 profile 重试：登录态就存在这个 profile 里，
+   *    换一个等于把使用者登出 —— 静默换 profile 比报错更糟。
+   */
+  const lockFile = join(profile, 'SingletonLock')
+  const hadLock = (() => { try { return existsSync(lockFile) } catch { return false } })()
+  const exeName = String(browser).split(/[\\/]/).pop() || 'chrome.exe'
+
+  let exited = null
   const p = spawn(browser, [
     '--headless=new',
     `--remote-debugging-port=${port}`,
@@ -137,6 +150,7 @@ export async function ensureChrome({ url = 'https://www.douyin.com/' } = {}) {
     '--window-size=1440,900', '--lang=zh-CN',
     url,
   ], { detached: true, stdio: 'ignore' })
+  p.once('exit', (code, signal) => { exited = { code, signal } })
   p.unref()
 
   for (let i = 0; i < 60; i++) {
@@ -144,9 +158,25 @@ export async function ensureChrome({ url = 'https://www.douyin.com/' } = {}) {
       writeRuntime({ cdpPort: port, browser })
       return { port, status: 'launched', browser }
     }
+    // 进程都退出了就别再等满 60 秒 —— 等的每一秒都在骗使用者「快好了」
+    if (exited) break
     await sleep(500)
   }
-  throw new Error(`无头 Chrome 起来了但 ${port} 上连不上 CDP（60 秒超时）`)
+  if (exited) {
+    throw new Error(
+      `无头浏览器启动后立刻退出了（code=${exited.code}${exited.signal ? `, signal=${exited.signal}` : ''}）`
+      + `—— 多半是 profile 被残留进程占着，新实例抢不到它：\n`
+      + `  profile: ${profile}\n`
+      + (hadLock ? `  这个目录里还留着 SingletonLock（上次没退干净）\n` : '')
+      + `  先查是谁占着（PowerShell）：\n`
+      + `    Get-CimInstance Win32_Process -Filter "Name='${exeName}'" | Where-Object { $_.CommandLine -like "*chrome-profile*" } | Select-Object ProcessId\n`
+      + `  确认是残留的（不是你自己开的抖音窗口）就结束它们，再重试。`,
+    )
+  }
+  throw new Error(
+    `无头浏览器还活着，但 ${port} 上连不上 CDP（60 秒超时）——`
+    + `端口被防火墙挡了，或监听到别的地址。profile: ${profile}`,
+  )
 }
 
 /* ───────────────────────── ④ CDP 客户端 ───────────────────────── */
@@ -155,16 +185,18 @@ export async function ensureChrome({ url = 'https://www.douyin.com/' } = {}) {
  * 连上页面，返回 { send, ev, close, port }。
  * `ev(expr)` 在页面里求值并返回值 —— 大部分脚本只用得到这个。
  */
-export async function connectPage(port) {
+export async function connectPage(port, { targetId } = {}) {
   const usePort = Number(port) || (await pickPort())
   const list = await (await fetch(`http://127.0.0.1:${usePort}/json/list`)).json()
-  const page = list.find((t) => t.type === 'page' && String(t.url).includes('douyin'))
-    || list.find((t) => t.type === 'page')
+  const page = targetId ? list.find((t) => t.id === targetId)
+    : list.find((t) => t.type === 'page' && String(t.url).includes('douyin'))
+      || list.find((t) => t.type === 'page')
   if (!page) throw new Error('没有可用的 page target（Chrome 起来了吗？）')
 
   const ws = new WebSocket(page.webSocketDebuggerUrl)
   let id = 0
   const pend = new Map()
+  const listeners = new Map()
   await new Promise((res, rej) => {
     ws.addEventListener('open', res, { once: true })
     ws.addEventListener('error', () => rej(new Error('连不上 CDP WebSocket')), { once: true })
@@ -175,6 +207,7 @@ export async function connectPage(port) {
       const { res, rej } = pend.get(m.id); pend.delete(m.id)
       m.error ? rej(new Error(JSON.stringify(m.error))) : res(m.result)
     }
+    for (const fn of listeners.get(m.method) || []) Promise.resolve(fn(m.params)).catch(() => {})
   })
   const send = (method, params = {}) => new Promise((res, rej) => {
     const mid = ++id; pend.set(mid, { res, rej })
@@ -185,12 +218,17 @@ export async function connectPage(port) {
 
   const ev = async (expr) => {
     const r = await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true })
-    if (r.exceptionDetails) throw new Error('页面里抛错: ' + JSON.stringify(r.exceptionDetails).slice(0, 240))
+    if (r.exceptionDetails) throw new Error('页面里抛错: ' + String(r.exceptionDetails.exception?.description || r.exceptionDetails.text).slice(0, 400))
     return r.result?.value
   }
 
   return {
     send, ev, port: usePort,
+    on: (method, fn) => {
+      if (!listeners.has(method)) listeners.set(method, new Set())
+      listeners.get(method).add(fn)
+      return () => listeners.get(method)?.delete(fn)
+    },
     close: () => { try { ws.close() } catch { /* 已经关了 */ } },
   }
 }
@@ -198,6 +236,17 @@ export async function connectPage(port) {
 /** 一步到位：确保 Chrome + 连上页面。脚本里最常用这个。 */
 export async function openPage(opts = {}) {
   const { port, status, browser } = await ensureChrome(opts)
+  if (opts.isolated) {
+    // 评论操作独占一个页面，避免复用 DSH 正在编辑或分享的页面。
+    const control = await connectPage(port)
+    let targetId
+    try { ({ targetId } = await control.send('Target.createTarget', { url: 'about:blank' })) }
+    finally { control.close() }
+    const page = await connectPage(port, { targetId })
+    return { ...page, status, browser, close: async () => {
+      try { await page.send('Target.closeTarget', { targetId }) } finally { page.close() }
+    } }
+  }
   const page = await connectPage(port)
   return { ...page, status, browser }
 }

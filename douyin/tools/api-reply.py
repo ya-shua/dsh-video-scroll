@@ -18,7 +18,11 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _home import home_str  # noqa: E402
+from _home import home_str, node_bin, utf8_stdio, read_cookie_text  # noqa: E402
+
+# ⚠️ 必须在任何 print 之前 —— GBK 控制台遇到 emoji 会崩（Issue #7②）
+utf8_stdio()
+
 import time
 import urllib.parse
 
@@ -26,27 +30,33 @@ import httpx
 
 HOME = home_str()
 PLUGIN = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-
-def _find_node():
-    """探测 Node（2026-10-29 修硬编码 C:\\Program Files\\nodejs\\node.exe 导致签名全挂）。"""
-    import shutil, glob as _glob
-    for c in (os.environ.get("DOUYIN_NODE", ""), shutil.which("node") or "",
-              os.path.expandvars(r"%USERPROFILE%\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe"),
-              r"C:\Program Files\nodejs\node.exe"):
-        if c and os.path.isfile(c):
-            return c
-    for p in _glob.glob(os.path.expandvars(r"%USERPROFILE%\.dsh\dsh-runtimes\*\dependencies\node\bin\node.exe")):
-        if os.path.isfile(p):
-            return p
-    return "node"
-
-
-NODE = _find_node()
+# Issue #7①：别再写死 `C:\Program Files\nodejs\node.exe`
+NODE = node_bin()
 SIGNER = os.path.join(PLUGIN, "tools", "dy-signer.mjs")
-VENVPY = os.path.join(HOME, ".venv", "Scripts", "python.exe")
+# 🔴 2026-11-05：跨平台 —— Windows 是 Scripts\python.exe，mac/Linux 是 bin/python
+VENVPY = os.path.join(HOME, ".venv", "Scripts" if os.name == "nt" else "bin",
+                      "python.exe" if os.name == "nt" else "python")
 GUARD = os.path.join(PLUGIN, "tools", "session-guard.py")
-COOKIE = open(os.path.join(HOME, "douyin_cookie.txt"), encoding="utf-8").read().strip()
+
+
+def _require_cookie():
+    """
+    🔴 2026-11-05：没登录时给结构化错误，不许抛 FileNotFoundError 堆栈。
+    """
+    # 必须走 read_cookie_text()：它剥 BOM（带 BOM 的 Cookie 塞进请求头会 UnicodeEncodeError）
+    cookie = read_cookie_text()
+    if not cookie:
+        print(json.dumps({
+            "ok": False,
+            "error": "还没有登录（没有 douyin_cookie.txt）",
+            "hint": "先在设置页扫码登录（或粘一条 Cookie），再回评论",
+            "stage": "cookie",
+        }, ensure_ascii=False))
+        sys.exit(2)
+    return cookie
+
+
+COOKIE = _require_cookie()
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
@@ -86,7 +96,11 @@ def guard():
 
 def sign(rel):
     env = dict(os.environ, DY_COOKIES=json.dumps(JAR, ensure_ascii=False), DOUYIN_HOME=HOME)
-    p = subprocess.run([NODE, SIGNER, rel], capture_output=True, cwd=PLUGIN, env=env, timeout=240)
+    try:
+        p = subprocess.run([NODE, SIGNER, rel], capture_output=True, cwd=PLUGIN, env=env, timeout=240)
+    except FileNotFoundError:
+        # 找不到 node 时说清楚，而不是让调用方以为「签名坏了」（Issue #7①）
+        return {"err": "找不到 node（%s）—— 设环境变量 DOUYIN_NODE 指向 node.exe 试试" % NODE}
     out = p.stdout.decode("utf-8", "replace")
     i = out.find("{")
     if i < 0:

@@ -36,12 +36,6 @@ import { resolveUid } from './lib/uid.mjs'
 import { loadCred as dmCred, listSessions as dmList, fetchMsgs as dmFetch } from './lib/dm.mjs'
 import { ensureUv } from './lib/uvfetch.mjs'
 
-// ⚠️ 临时启动探针（合并包排查用，诊断后移除）：把加载里程碑写到 bili-duty/boot-probe.log
-import { appendFileSync as _probeAppend } from 'node:fs'
-const _probe = (m) => { try { _probeAppend('C:\\Users\\Lenovo\\.dsh\\bili-duty\\boot-probe.log', `${new Date().toISOString()}  ${m}\n`, 'utf8') } catch { /* 探针失败不影响本体 */ } }
-_probe('module evaluated: ' + import.meta.url)
-setTimeout(() => _probe('module alive 90s later（apply 若未进 ⇒ entry 挂起或挂载失败）'), 90_000).unref?.()
-
 export const name = 'bili-scroll'
 // attachments / llm 故意**不**列进 inject：它们只在看图时才用 ctx.get 取，
 // 取不到就把图降级成文字说明；列进来会让没有这两个服务的宿主直接装不上。
@@ -90,6 +84,12 @@ export const Config = !z ? undefined : z.object({
   headlessProfile: z.string().default('bili-duty').extra('volatile', true),
   /** 给那一轮叠一份插件自己的 patch（把 B站 MCP 挂上）—— 用户 profile 一个字都不用改 */
   overlayMcp: z.boolean().default(true).extra('volatile', true),
+  /** ⭐ 一轮最多跑多久（分钟）—— 超时自动收掉；模型（尤其非 DeepSeek）会陷进循环，得有个上限 */
+  runTimeoutMinutes: z.natural().default(20).extra('volatile', true),
+  /** ⭐ 这一轮用哪个**模型**（provider 那半边，如 deepseek-account）；留空 = 跟随你当前会话选的那个 */
+  modelProvider: z.string().default('').extra('volatile', true),
+  /** ⭐ 这一轮用哪个**模型**（模型 id，如 deepseek-flash）；留空 = 跟随当前会话 */
+  modelName: z.string().default('').extra('volatile', true),
   /** 跑 headless 时的工作目录 */
   /** ⭐ 人设提示词：使用者想让它怎么说话（比"填工作区"对新手友好得多）· 留空 = 按中性说话 */
   personaPrompt: z.string().default('').extra('volatile', true),
@@ -113,7 +113,7 @@ export const Config = !z ? undefined : z.object({
     /** 手动跑一轮最多挑几条（手动是「额外的一次」，不占每天额度） */
     manualMax: z.natural().default(3).extra('volatile', true),
     /** 两次手动之间至少隔几分钟（防手滑狂点、防烧 token） */
-    manualCooldownMin: z.natural().default(10).extra('volatile', true),
+    manualCooldownMin: z.natural().default(3).extra('volatile', true),
     /** 填了关键词时用哪种排序（pubdate=最新 / click=播放 / dm=弹幕 / totalrank=综合） */
     searchSort: z.string().default('pubdate').extra('volatile', true),
     /** 关键词搜索翻几页（一页约 20 条，默认 2 页 ≈ 40 条候选） */
@@ -140,7 +140,6 @@ const pyEnv = (extra = {}) => ({
 })
 
 export function apply(ctx, config) {
-  _probe('apply entered')
   const pluginDir = dirname(fileURLToPath(import.meta.url))
   // ⭐ 自己的版本号（从 package.json 读，设置页要显示它）
   let myVer = ''
@@ -255,7 +254,6 @@ function reportMeta() {
   }
 
   // 宿主依赖是从哪儿取的（桌面版那次事故的排查看这里：duty.log 里会写明白）
-  _probe('before notes loop')
   for (const n of hostDeps.notes) log(n)
 
   /**
@@ -275,7 +273,8 @@ function reportMeta() {
     dmMode: 'only', dmUid: 0,
     keywords: [], commentPerRound: 1, mentionName: '', pythonPath: 'python', dshBin: '', headlessProfile: 'headless', overlayMcp: true, workspace: '', reportLevel: 'full', replyToComments: false, replyPerRound: 1, favFolderId: 0,
     // ⭐ 2.3.0：手动轮 / 抓取量 / 排除词 / 评论长度 —— 少一项 normalize 就会把用户存的值丢掉
-    manualMax: 3, manualCooldownMin: 10, searchSort: 'pubdate', searchPages: 2, fetchPerRound: 8, excludeWords: [], commentLength: 'medium',
+    manualMax: 3, manualCooldownMin: 3, searchSort: 'pubdate', searchPages: 2, fetchPerRound: 8, excludeWords: [], commentLength: 'medium',
+    modelProvider: '', modelName: '', runTimeoutMinutes: 20,
   }
   const normalize = (src, base) => {
     const out = { ...base }
@@ -323,6 +322,11 @@ function reportMeta() {
     if ('replyPerRound' in p) p.replyPerRound = Math.max(1, Math.min(Number(p.replyPerRound) || 1, 10))
     if ('favFolderId' in p) p.favFolderId = Math.max(0, Math.floor(Number(p.favFolderId) || 0))
     if ('commentPerRound' in p) p.commentPerRound = Math.max(0, Math.min(Number(p.commentPerRound) || 0, 20))
+    // ⭐ 模型两个字段只做清洗（空字符串 = 跟随当前会话）；配错的 provider/model 交给那一轮去报错，
+    //    这里**不校验合法性** —— 校验失败会把整条插件卡在设置页之外
+    if ('modelProvider' in p) p.modelProvider = String(p.modelProvider || '').trim().slice(0, 120)
+    if ('modelName' in p) p.modelName = String(p.modelName || '').trim().slice(0, 160)
+    if ('runTimeoutMinutes' in p) p.runTimeoutMinutes = Math.max(1, Math.min(Number(p.runTimeoutMinutes) || 20, 120))
     return p
   }
 
@@ -402,8 +406,15 @@ function reportMeta() {
     ])
     // ⭐ 2026-10-19：把"插件这份和 DSH 原生设置那份不一样、且以插件为准"的键记下来 ——
     //   只记不吵（每台机器每种组合只写一行日志），`/status` 里也能看到，排查时一眼够用
+    // ⭐⭐ 2026-10-25（本人反馈：「把工作区改了，标签还在旧工作区」）：
+    //    **面板里没有入口的键**不能走"本地优先" —— 用户只能去 DSH 原生设置页改它们，
+    //    而 touched 的判据（config.json 和默认值不同 / 曾被工具写过）会让那份旧值一直赢 ✗
+    //    实测：把 workspace 从 D:\hajimi 改成 D:\dafeiyu，原生设置页显示改了、插件仍读旧值 ⇒
+    //    「刷过的视频」tab 还挂在旧工作区。⇒ 这两个键只要有原生 user 层值，就以**原生**为准。
+    const NATIVE_FIRST_KEYS = new Set(['workspace', 'headlessProfile'])
     const diff = []
     for (const k of Object.keys(DEFAULTS)) {
+      if (NATIVE_FIRST_KEYS.has(k) && user[k] !== undefined) { out[k] = user[k]; continue }   // 只在原生页能改 ⇒ 听原生
       if (touched.has(k)) { out[k] = saved[k]; continue }        // 我们这边管 ⇒ 不再被宿主压回
       if (user[k] !== undefined) { out[k] = user[k]; continue }  // 用户在 DSH 原生页改的 ⇒ 听他的
       out[k] = saved[k]
@@ -843,7 +854,10 @@ function reportMeta() {
     name: 'bili_config',
     description: '读 / 改「刷B站」的设置。不给 `patch` 就是读；给了就改（只认 schema 里的字段）。\n'
       + '例：`{"perDay":5,"peakValley":true,"noon":true,"night":true,"autoComment":false,"transcribe":false,"keywords":["DeepSeek Harness"]}`；'
-      + '私信投递：`{"dmMode":"only","dmUid":12345678}`（dmMode = off / only / both）。',
+      + '私信投递：`{"dmMode":"only","dmUid":12345678}`（dmMode = off / only / both）；'
+      + '⭐ 指定这一轮用哪个模型：`{"modelProvider":"deepseek-account","modelName":"deepseek-flash"}`'
+      + '（两个都留空 = 跟随你当前会话选的模型。⚠️ 只有 headless profile 里装了的 provider 真能用：`deepseek-account` / `deepseek-official` / `google-antigravity`；'
+      + '填别的（headless 里没装的插件提供的模型）那一轮会退回跟随当前会话，并在 `status.model.ignored` 里标出来）。',
     parameters: { patch: { type: 'object', additionalProperties: true, description: '要改的字段（可省）' } },
     async execute(args) {
       let host = null
@@ -1384,6 +1398,103 @@ function reportMeta() {
     return dutyProfileState === 'ok' ? 'bili-duty' : (want || 'headless')
   }
 
+  /**
+   * ⭐ 2026-10-23：**这一轮到底用哪个模型**。
+   *    以前只有一个来源 —— 「跟随用户当前会话选的那个」（overlay 里抄 `agentDefaultModel.currentSelection()`）。
+   *    问题是：想给「刷B站」单独钉一个模型（比如省钱用 flash、或者反过来用 pro）时没有入口，
+   *    而它又跑在**另一个 headless 会话**里，用户看到的"当前会话"跟它根本不是一回事 ✗。
+   *    现在：
+   *      · 设置页 / `bili_config` 里填了 `modelProvider` + `modelName` ⇒ **就用这一对**（source: plugin）
+   *      · 没填（默认）⇒ 退回老行为，跟随当前会话（source: session）
+   *    两边都没有 ⇒ null（不写 agent-default-model，保持 DSH 自己的默认）。
+   *
+   *    🔴🔴 2026-10-23（本人实测 `NO_ADAPTER: no adapter registered for provider "google-antigravity"`）：
+   *    **不能拿桌面版能看到的所有 provider 当候选**。值班轮是 `dsh --profile headless` 起的，
+   *    而 headless profile 只装了 `@deepseek-ai/dsh-base` + `@deepseek-ai/dsh-headless`，
+   *    默认只有两条：`deepseek-official`（API key）和 `deepseek-account`（账号登录）。
+   *    桌面版的 Antigravity / Claude / Gemini 多半是**别的插件**在桌面 profile 里注册的，
+   *    headless 里没有这些适配器 ⇒ 选它那一轮在发第一个请求前就死，整轮白跑 ✗。
+   *    ⇒ 指定了用不了的 provider 时：**不写进 overlay**（这一轮退回跟随当前会话，至少能跑），
+   *      并在 `status` / 日志里把 `ignored` 带出来，让设置页明说"这个用不了"。
+   *
+   *    ⭐ 2026-10-23 实测：把 `dsh-tool-antigravity` 也装进 headless 后，
+   *    `google-antigravity / antigravity-gemini-3.8-flash` 在 `--profile headless` 里能正常出字
+   *    （它自带凭据读取，不要 webserver）⇒ 这一条加进白名单。**这份名单要和
+   *    `~/.dsh/profiles/headless/package.json` 里的 bundles 保持一致**，
+   *    以后 headless 里加了/删了 provider 插件，记得同步这里。
+   *
+   *    🔴🔴 2026-10-25（2.1.0 升级后）：2.1.0 起值班轮默认跑**最小权限的 `bili-duty` profile**
+   *    （只有 `dsh-base` + `dsh-headless` 两个 bundle）⇒ 那个 profile 里**只有 DeepSeek 两条路由**；
+   *    Antigravity 只装在老的 `headless` profile 里。所以白名单不能写死，要按**这一轮实际用的 profile** 判断，
+   *    否则钉着 Antigravity 的配置会直接 NO_ADAPTER、整轮白跑。
+   */
+  const BASE_PROVIDERS = ['deepseek-account', 'deepseek-official']
+  /** 这些 provider 只装在某个特定 profile 里：{ provider: profile 名 } */
+  const PROFILE_ONLY_PROVIDERS = { 'google-antigravity': 'headless' }
+  const providerUsable = (p) => providerState(p) !== 'no'
+  /**
+   * ⭐ 2026-11-04（#175 / #130 / #163）：三态判断 —— 设置页的模型下拉需要"能选"和"确定能用"分开。
+   *   'yes'   = 白名单里的（值班轮那个 profile 一定有适配器）
+   *   'no'    = 绑定了别的 profile，这一轮肯定没有
+   *   'maybe' = 宿主里有、但**这一轮 profile 装没装我们看不到**（插件跑在 web 进程，值班轮是另一个进程）
+   * ⇒ 以前 'maybe' 一律当 false ⇒ 用户自己往值班 profile 里装了驱动也被挡（#175）。
+   *   现在放开可选，真没有驱动时由 runDuty 的失败兜底说清楚（见 lib/diagnose.mjs）。
+   */
+  const providerState = (p) => {
+    const id = String(p || '')
+    if (!id) return 'no'
+    if (BASE_PROVIDERS.includes(id)) return 'yes'
+    const needProfile = PROFILE_ONLY_PROVIDERS[id]
+    if (needProfile) {
+      try { return effectiveProfile() === needProfile ? 'yes' : 'no' } catch { return 'no' }
+    }
+    return 'maybe'
+  }
+  const usableProviders = () => BASE_PROVIDERS.concat(
+    Object.keys(PROFILE_ONLY_PROVIDERS).filter((p) => providerUsable(p)),
+  )
+  /** ⭐ 连「当前会话的模型」都用不了时兜底的那一对（账号登录的机器上一定能跑） */
+  const FALLBACK_MODEL = { provider: 'deepseek-account', model: 'deepseek-flash' }
+  /** 设置页/工具里钉死的那一对（两个都填了才算） */
+  const pinnedModel = () => {
+    const provider = String(cfg.modelProvider || '').trim()
+    const model = String(cfg.modelName || '').trim()
+    return (provider && model) ? { provider, model } : null
+  }
+  /** 跟随当前会话 */
+  const sessionModel = () => {
+    try {
+      const sel = ctx.get('agentDefaultModel')?.currentSelection?.() ?? null
+      const provider = sel?.provider ?? sel?.providerId
+      const model = sel?.model ?? sel?.modelId
+      if (!provider || !model) return null
+      return {
+        provider: String(provider),
+        model: String(model),
+        ...(sel.reasoningEffort ? { reasoningEffort: String(sel.reasoningEffort) } : {}),
+        source: 'session',
+      }
+    } catch { /* 老版本没有这个服务 —— 不写就退回原行为 */ }
+    return null
+  }
+  const chosenModel = () => {
+    const pin = pinnedModel()
+    if (pin && providerUsable(pin.provider)) return { ...pin, source: 'plugin' }
+    const ses = sessionModel()
+    // 指定了但 headless 用不了 ⇒ 带上 `ignored`（调用方据此告警），实际用会话那个
+    if (ses && providerUsable(ses.provider)) {
+      return pin ? { ...ses, source: 'session', ignored: pin } : ses
+    }
+    // 🔴 当前会话用的也是刷B站用不了的（桌面版切到 Antigravity / Claude 就这情况）⇒
+    //    再兜底到 DeepSeek 账号路由：宁可换模型，也别让这一轮在第一个请求前就死掉
+    return {
+      ...FALLBACK_MODEL,
+      source: 'fallback',
+      ...(pin ? { ignored: pin } : {}),
+      ...(ses ? { sessionIgnored: { provider: ses.provider, model: ses.model } } : {}),
+    }
+  }
+
   const ensureOverlay = () => {
     const file = join(stateDir, 'headless-overlay.yml')
     const script = join(stateDir, 'mcp_server.py')
@@ -1407,18 +1518,27 @@ function reportMeta() {
     //    因为 headless 的 `agent-default-model` 默认解析到 `deepseek-official`（要 API key），
     //    而"账号登录"的机器没有 key；桌面版是靠 profile 那层 patch 把路由指到 deepseek-account 的，
     //    **我们这一轮的一次性 overlay 没有那一层** ⇒ 还没发请求就死了。
-    //    ⇒ overlay 里补一条 agent-default-model，**优先跟随用户当前选的模型**；拿不到就不写（保持原行为）✓
+    //    ⇒ overlay 里补一条 agent-default-model：**设置页指定了就用指定的**，没指定就跟随当前会话；
+    //      两边都没有就不写（保持原行为）✓
+    //    ⚠️ YAML 里这几个值一律加引号（用上面的 yq）—— 用户手填的 provider/model 带空格或冒号时不加引号会写坏整份 overlay
     try {
-      const sel = ctx.get('agentDefaultModel')?.currentSelection?.() ?? null
-      const selProvider = sel?.provider ?? sel?.providerId
-      const selModel = sel?.model ?? sel?.modelId
-      if (selProvider && selModel) {
+      const sel = chosenModel()
+      // ⭐ 指定了/当前会话是这一轮 profile 里没有的 provider ⇒ 别带它（带了必 NO_ADAPTER），但要留一句明白话
+      if (sel?.source === 'fallback') {
+        log('⚠️ ' + (sel.sessionIgnored ? `当前会话的模型 ${sel.sessionIgnored.provider} / ${sel.sessionIgnored.model}` : '当前模型')
+          + ` 在 ${effectiveProfile()} 里没有适配器（那一轮只用得了 ${usableProviders().join(' / ')}）`
+          + `⇒ 这一轮改用 ${sel.provider} / ${sel.model}`)
+      } else if (sel?.ignored) {
+        log(`⚠️ 设置里指定的模型 ${sel.ignored.provider} / ${sel.ignored.model} 在 ${effectiveProfile()} 里没有适配器`
+          + `（那一轮只用得了 ${usableProviders().join(' / ')}）⇒ 这一轮改为跟随当前会话：${sel.provider} / ${sel.model}`)
+      }
+      if (sel?.provider && sel?.model) {
         yml.push(
           '- id: agent-default-model',
           '  config:',
-          '    provider: ' + String(selProvider),
-          '    model: ' + String(selModel),
-          ...(sel.reasoningEffort ? ['    reasoningEffort: ' + String(sel.reasoningEffort)] : []),
+          '    provider: ' + yq(sel.provider),
+          '    model: ' + yq(sel.model),
+          ...(sel.reasoningEffort ? ['    reasoningEffort: ' + yq(sel.reasoningEffort)] : []),
           '',
         )
       }
@@ -1482,6 +1602,35 @@ function reportMeta() {
    * ⚠️ 只在"报告本来该有却没有"时补（`reportLevel: off` 不补），不覆盖已有报告。
    */
     const writeRoundNotesToReport = () => {
+      // ⭐ #172：原地替换某一节（不是"删掉后面全部再重写"）—— 多轮时后面的正文不能再被剪掉。
+      //   规则：找出所有 marker 节 → 全删掉 → 在第一个出现的位置插回合并后的那一节。
+      const replaceSect = (cur, marker, block) => {
+        const ranges = []
+        let idx = 0
+        for (;;) {
+          const at = cur.indexOf(marker, idx)
+          if (at < 0) break
+          const after = cur.slice(at + marker.length)
+          const m = after.match(/\n## /)
+          const end = m ? at + marker.length + m.index + 1 : cur.length
+          ranges.push([at, end])
+          idx = end
+        }
+        const body = block.replace(/^\s*\n/, '').replace(/\s*$/, '')
+        if (!ranges.length) return cur.replace(/\s*$/, '') + '\n\n' + body + '\n'
+        const firstStart = ranges[0][0]
+        let stripped = ''
+        let cursor = 0
+        for (const [s, e] of ranges) { stripped += cur.slice(cursor, s); cursor = e }
+        stripped += cur.slice(cursor)
+        const before = stripped.slice(0, firstStart).replace(/\s*$/, '')
+        const after = stripped.slice(firstStart).replace(/^\s*\n/, '').replace(/\s*$/, '')
+        let out = before ? before + '\n\n' : ''
+        out += body
+        if (after) out += '\n\n' + after
+        return out + '\n'
+      }
+
       try {
         if (!roundNotes.length) return
         if (String(cfg.reportLevel || 'full') === 'off') return
@@ -1489,9 +1638,7 @@ function reportMeta() {
         const block = '## 投递\n\n' + roundNotes.map((n) => '- ' + n).join('\n') + '\n'
         if (!existsSync(f)) { writeFileSync(f, `# 刷B站 · ${dayKey()}\n\n` + block, 'utf8'); return }
         let cur = readFileSync(f, 'utf8')
-        const at = cur.indexOf('## 投递')
-        if (at >= 0) cur = cur.slice(0, at).replace(/\s*$/, '') + '\n'
-        writeFileSync(f, cur.replace(/\s*$/, '') + '\n' + block, 'utf8')
+        writeFileSync(f, replaceSect(cur, '## 投递', block), 'utf8')
       } catch { /* 宁可没这段，也不能让这一轮挂掉 */ }
     }
 
@@ -1536,6 +1683,80 @@ function reportMeta() {
       ].join('\n'), 'utf8')
       log('这一轮没写报告 ⇒ 宿主补了一份占位报告')
     } catch (e) { log(`补占位报告失败：${e?.message ?? e}`) }
+  }
+
+  /* ── 值班会话的「隐形」处理 ──
+   * 🔴 2026-10-25（本人反馈）：每点一次「现在跑一轮」，左侧「未分组」就多一个对话。
+   *    原因：值班轮是 `dsh --profile bili-duty <prompt>` 起的**独立会话**，它不属于任何 workspace，
+   *    侧栏就把它列在「未分组」；而 `dsh headless --help` 只有 `--session-id`，**没有"不写 session"的开关**
+   *    ⇒ 会话一定会落盘，插件没法阻止。能做的只是**跑完立刻归档**：DSH 的 archivedSessionIds 是全局的，
+   *    侧栏默认不列已归档的会话，但对话记录还留着（要翻还能翻）。
+   *    ⚠️ 只动「桶名里带 bili-duty」的那些 session（值班轮自己的 cwd），绝不碰用户自己的会话。
+   */
+  const dutySessionBucket = () => {
+    try {
+      const root = join(dirname(stateDir), 'sessions')
+      const bucket = readdirSync(root).find((n) => n.includes('bili-duty'))
+      return bucket ? { dir: join(root, bucket) } : null
+    } catch { return null }
+  }
+  const archiveDutySessions = async (ids) => {
+    const reg = ctx.get('workspaceRegistry')
+    if (!reg?.archiveSession) { log('⚠️ 拿不到 workspaceRegistry ⇒ 值班会话没法自动归档'); return 0 }
+    let n = 0
+    for (const id of ids) {
+      try { await reg.archiveSession(id, {}); n += 1 } catch { /* 已经归档 / 不存在 ⇒ 跳过 */ }
+    }
+    return n
+  }
+  /** 归档桶里的 session；给了 since（毫秒）就只归档那之后动过的（= 刚跑完的这一轮）；
+   *  exclude 里的 id 不动（私信回复那条会话要留着续聊，不能一起归档掉） */
+  const archiveDutyBucket = (since = 0, exclude = new Set()) => {
+    try {
+      const b = dutySessionBucket()
+      if (!b) return 0
+      const ids = []
+      for (const n of readdirSync(b.dir)) {
+        if (!/^session-/.test(n)) continue
+        if (exclude.has(n)) continue
+        if (since > 0) {
+          try { if (statSync(join(b.dir, n)).mtimeMs < since) continue } catch { continue }
+        }
+        ids.push(n)
+      }
+      if (!ids.length) return 0
+      archiveDutySessions(ids)
+        .then((k) => {
+          if (k) log(`已归档 ${k} 个值班会话（不再出现在侧栏「未分组」）`)
+          else log(`⚠️ 有 ${ids.length} 个值班会话没归档成（workspaceRegistry 不认）⇒ 侧栏「未分组」可能还看得到`)
+        })
+        .catch(() => { /* 归档失败不影响这一轮 */ })
+      return ids.length
+    } catch { return 0 }
+  }
+
+  /**
+   * ⭐ 2026-10-25（本人反馈：「明明指定了工作区，能不能让它显示在工作区中」）：
+   *    DSH 侧栏按**会话的 cwd** 归工作区 —— cwd 在插件家（没登记成工作区）⇒ 显示成「未分组」。
+   *    设了 workspace 且目录在 ⇒ 值班轮的 cwd 就用它：会话落在那个工作区的桶里，侧栏自然归进去。
+   *    没设 / 目录不在 / 跑的是全工具的 headless（老回退路径）⇒ 仍用插件家，保持老行为。
+   *    ⚠️ 顺带确保这个目录是**已登记的工作区**（没登记的话侧栏还是没地方挂它）。
+   */
+  const dutyCwd = () => {
+    const want = String(cfg.workspace || '').trim()
+    if (!want) return stateDir
+    try { if (!statSync(want).isDirectory()) return stateDir } catch { return stateDir }
+    if (dutyProfileState !== 'ok') return stateDir
+    try {
+      const reg = ctx.get('workspaceRegistry')
+      if (reg?.resolveByPath) {
+        reg.resolveByPath(want).then((w) => {
+          if (w || !reg.create) return
+          reg.create(want).then(() => log('已把工作区登记进 DSH：' + want)).catch(() => { /* 登记失败就算了 */ })
+        }).catch(() => { /* 路径在但 realpath 失败：不影响这一轮 */ })
+      }
+    } catch { /* 拿不到注册表也不影响跑 */ }
+    return want
   }
 
   // ⭐⭐ 2.0.4（第三方体检第 2 条）：**同一时间只允许一轮在跑**，并且**登记这个子进程**，
@@ -1583,6 +1804,25 @@ function reportMeta() {
 
   let dutyChild = null
   let dutyStartedAt = 0
+  /* ⭐ 2026-10-23（本地补丁）：2.0.4 已经自带"同一时间只跑一轮"的锁与卸载收进程，
+   *    我们在它上面**只叠一层超时看门狗**：非 DeepSeek 的模型容易陷进"再搜一个关键词"的循环，
+   *    以前只能人工关掉 DSH。超时先 SIGTERM，5 秒后还在就 SIGKILL，日志写明原因。 */
+  let dutyWatchdog = null
+  const dutyTimeoutMin = () => Math.max(1, Math.min(Number(cfg.runTimeoutMinutes) || 20, 120))
+  const dutyClear = () => {
+    if (dutyWatchdog) { clearTimeout(dutyWatchdog); dutyWatchdog = null }
+    dutyChild = null
+    dutyStartedAt = 0
+  }
+  const killDuty = (why) => {
+    const c = dutyChild
+    if (!c) return false
+    log(`⚠️ 这一轮被中止（${why}）`)
+    try { c.kill('SIGTERM') } catch { /* 已经没了 */ }
+    const t = setTimeout(() => { try { c.kill('SIGKILL') } catch { /* 已经没了 */ } }, 5000)
+    t.unref?.()
+    return true
+  }
   const runDuty = (why = 'window') => {
    try {
       if (dutyChild) {
@@ -1625,7 +1865,8 @@ function reportMeta() {
         }
         bumpState({ lastManualAt: Date.now() })
       }
-    const cwd = stateDir
+    // ⭐ 本地补丁：值班轮 cwd = 设置里的 workspace ⇒ 会话归到该工作区，而不是侧栏「未分组」（见 dutyCwd）
+    const cwd = dutyCwd()
     log(`刷B站开跑（${why}）：${dsh.command} ${args.slice(0, 3).join(' ')} …  cwd=${cwd}`)
     const child = spawn(dsh.command, args, {
       cwd,
@@ -1636,7 +1877,7 @@ function reportMeta() {
       //    中文 / emoji 打进管道会炸（用户反馈过 UnicodeDecodeError），一律按 UTF-8 来
       // ⭐ ELECTRON_RUN_AS_NODE：**桌面版（Electron）里 spawn 出去的 node 必须带这个**，
       //    否则它当成"再开一个 Electron 应用"、什么都不干就以 0 退出（issue #5：0.17 秒、code 0、什么都没做）
-      env: uvEnv({ BILI_DUTY_HOME: stateDir, ...(process.versions.electron ? { ELECTRON_RUN_AS_NODE: '1' } : {}) }),
+      env: uvEnv({ BILI_DUTY_HOME: stateDir, BILI_DUTY_RUN_DAY: dayKey(), ...(process.versions.electron ? { ELECTRON_RUN_AS_NODE: '1' } : {}) }),
     })
     // ⚠️ 2026-10-16 issue #1（用户 `miaoxingyunduo` 贴了崩溃日志）：`duty.log` 被别的进程占着时
     //    (`EBUSY`) `appendFileSync` 会抛异常 —— 而这里是 **stream 的 data 回调**，没人接
@@ -1658,9 +1899,21 @@ function reportMeta() {
     }
     child.stdout?.on('data', pick)
     child.stderr?.on('data', pick)
+    // ⭐ 记下这一轮 + 上超时看门狗（并发锁本身由 2.0.4 提供，见上方注释）
+    dutyChild = child
+    dutyStartedAt = Date.now()
+    dutyWatchdog = setTimeout(() => killDuty(`超过 ${dutyTimeoutMin()} 分钟没跑完`), dutyTimeoutMin() * 60_000)
+    dutyWatchdog.unref?.()
     child.on('exit', (code) => {
       releaseRunLock()            // ⭐ 这一轮结束了，把锁放开（删不掉也没事，10 分钟自动过期）
+      const startedAt = dutyStartedAt
+      if (dutyChild === child) dutyClear()
       log(`刷B站结束（${why}，code=${code}）`)
+      // ⭐ 2026-10-25：这一轮刚生成的会话，稍等它落盘后归档 —— 别让它占着侧栏「未分组」
+      try {
+        const t = setTimeout(() => { archiveDutyBucket(startedAt - 5000) }, 1200)
+        t.unref?.()
+      } catch { /* 忽略 */ }
       stubReportIfMissing(code)   // ⭐ 没写报告就补一份占位 —— 别让使用者什么都看不到
       try { writeRoundNotesToReport() } catch { /* 写不进去也不能炸 */ }
     // ⭐ 2026-10-20：这一轮跑成了、并且使用者选了收藏夹 ⇒ 把挑中的存进去（后台做，别拖住收尾）
@@ -1691,11 +1944,11 @@ function reportMeta() {
       verifyTimer.unref?.()   // 别为了一次复核把宿主进程的退出拖住 90 秒
     })
     child.on('close', () => { if (dutyChild === child) dutyChild = null })
-    dutyChild = child
-    dutyStartedAt = Date.now()
-    child.on('error', (e) => { releaseRunLock(); log(`刷B站起不来：${e?.message ?? e}`) })
-    // ⭐ 起不来/被杀掉也要把锁放开，否则之后每一轮都会被判成'上一轮还没结束' ✗
-    child.on('close', () => { if (dutyChild === child) dutyChild = null })
+    child.on('error', (e) => {
+      releaseRunLock()
+      if (dutyChild === child) dutyClear()
+      log(`刷B站起不来：${e?.message ?? e}`)
+    })
     return { started: true, why, profile: cfg.headlessProfile, cwd, log: logFile }
    } catch (e) {
     log(`刷B站开跑失败（${why}）：${e?.stack ?? e}`)
@@ -2231,6 +2484,19 @@ function reportMeta() {
     const file = join(stateDir, 'seen.md')
     let text = ''
     try { text = readFileSync(file, 'utf8') } catch { return [] }
+    // 只有值班轮中收到 B 站投递回执的 BV 才记为已私信。
+    const dmDelivered = new Set()
+    try {
+      for (const line of readFileSync(join(stateDir, 'dm-deliveries.jsonl'), 'utf8').split(/\r?\n/)) {
+        try {
+          const { day, bvids } = JSON.parse(line)
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Array.isArray(bvids)) continue
+          for (const bv of bvids) {
+            if (typeof bv === 'string' && /^BV[0-9A-Za-z]{10}$/.test(bv)) dmDelivered.add(`${day}@${bv}`)
+          }
+        } catch { /* 跳过空行或损坏的记录 */ }
+      }
+    } catch { /* 尚未发送过私信 */ }
     const out = []
     const seen = new Set()
     let bad = 0
@@ -2263,7 +2529,7 @@ function reportMeta() {
       const skipped = /跳过|跳了|没挑/.test(status)
       const picked = !skipped && /挑|收|选|值得看|可以看/.test(status)
       const commented = /评论/.test(status)
-      const delivered = /评论|私信|已发|发给/.test(status) || deliveredBvs.has(bvid)
+      const delivered = /评论|私信|已发|发给/.test(status) || deliveredBvs.has(bvid) || (picked && dmDelivered.has(`${day}@${bvid}`))
       out.push({ day, bvid, title, up, status, picked, commented, delivered, url: 'https://www.bilibili.com/video/' + bvid })
     }
     // ⭐ 以前这里是静默丢行 ⇒ 卡片墙空了也没人知道为什么（#133）
@@ -2527,6 +2793,65 @@ function reportMeta() {
 
   let updateCache = null            // { at, latest } —— 检查更新的结果缓存
 
+  /**
+   * ⭐ 2026-10-23：设置页那个「模型」下拉要的数据 —— 从宿主的 `llm` 服务里问：
+   *    有哪些 provider（adapter 注册过的那些）、每个 provider 又能用哪些 model。
+   *    ⚠️ 三件事必须做，否则设置页会卡住 / 报错：
+   *      ① **按 provider 兜住异常**：某个 provider 没配 key / 网络不通时 `listModels` 会抛，
+   *         抛出去整份列表就空了 ⇒ 一个 provider 失败只跳过它；
+   *      ② **给它一个上限时间**：`listModels` 有可能去敲网络，挂住的话设置页一直"读取中…" ✗；
+   *      ③ **缓存 5 分钟**：设置页每 5 秒轮询一次 status，但模型列表只在打开时读一次，
+   *         不缓存的话每次打开都重新问一遍，慢且浪费。
+   *    🔴 还有第 ④ 件（2026-10-23 本人踩出来的）：**只列 headless 里真用得上的 provider** ——
+   *       这个 `llm` 服务是**桌面 profile** 的，里面有订阅插件塞进来的 Antigravity / Claude / Gemini，
+   *       而值班轮跑在 headless profile（只有 `deepseek-official` / `deepseek-account` 两个适配器）。
+   *       把桌面那些也列出来 = 诱导用户选一个必然 `NO_ADAPTER` 的 ✗。
+   */
+  let modelCatalogCache = { at: 0, data: null }
+  const listModelCatalog = async () => {
+    const now = Date.now()
+    if (modelCatalogCache.data && now - modelCatalogCache.at < 5 * 60_000) return modelCatalogCache.data
+    let providers = []
+    try {
+      const llm = ctx.get('llm')
+      /* ⭐ 2026-11-04：不再 filter 掉"不确定"的 —— 全都列出来，各带 usable 标记，让用户自己看见 */
+      const routes = (llm?.listProviders?.() || [])
+        .map((p) => ({ id: String(p?.id || ''), name: String(p?.name || p?.id || ''), state: providerState(p?.id) }))
+        .filter((p) => p.id && p.state !== 'no')
+      // ⚠️ 并行问、每个都有 4 秒上限：串行问的话 provider 一多，设置页能等十几秒
+      const ask = async (route) => {
+        if (typeof llm?.listModels !== 'function') return null
+        let models = []
+        try {
+          models = await Promise.race([
+            Promise.resolve(llm.listModels(route.id)),
+            new Promise((resolve) => { const t = setTimeout(() => resolve([]), 4000); t.unref?.() }),
+          ])
+        } catch { models = [] }
+        if (!Array.isArray(models) || !models.length) return null
+        return {
+          id: route.id,
+          name: route.name || route.id,
+          usable: route.state,
+          why: route.state === 'yes' ? '' : '这个只在你的主 profile 里装了；值班轮那个 profile 里有没有，插件看不到 —— 选了之后如果那一轮报「没有适配器」，说明要往值班 profile 里补一份 provider 定义',
+          models: models.map((m) => ({ id: String(m.id), name: String(m.name || m.id) })),
+        }
+      }
+      providers = (await Promise.all(routes.map(ask))).filter(Boolean)
+    } catch { /* 老版本 / 没 llm 服务 ⇒ 空列表：界面只留「跟随当前会话」 */ }
+    // ⭐ 桌面版里那些用不上的 provider 单独报一下，设置页拿它来解释"为什么没有 Antigravity"
+    const unavailable = (() => {
+      try {
+        return (ctx.get('llm')?.listProviders?.() || [])
+          .map((p) => String(p?.id || ''))
+          .filter((id) => id && !providerUsable(id))
+      } catch { return [] }
+    })()
+    const data = { providers, usable: usableProviders(), unavailable }
+    modelCatalogCache = { at: now, data }
+    return data
+  }
+
   const status = () => {
     refreshCfg()
     const st = readJson(dutyStateFile, {})
@@ -2554,6 +2879,12 @@ function reportMeta() {
       loggedIn: hasCredential(),
       venvReady: venvProbeNow().ready,
       version: myVersion(),
+      // ⭐ 2026-10-23：这一轮会用的模型（设置页要把"到底用哪个"写出来，不然指定了也不知道生没生效）
+      model: chosenModel(),
+      // ⭐ 2026-10-23：现在有没有一轮在跑（设置页据此把「现在跑一轮」置灰 + 显示已经跑了多久）
+      running: Boolean(dutyChild),
+      runningSince: dutyStartedAt || 0,
+      runTimeoutMinutes: dutyTimeoutMin(),
       // 2026-10-22：缺哪个 Python 包装不上，得能一眼看出来（出不了二维码 =09 缺 qrcode）
       missingDeps: venvProbeNow().missing,
       dmUidResolved: Number(cfg.dmUid) || dmUidCache || 0,
@@ -2636,6 +2967,47 @@ function reportMeta() {
       return sendJson(res, 200, { ok: true, config: cfg, windows: WINDOWS, home: stateDir })
     }
 
+    // ⭐ 2026-10-23：这个会话是不是在「刷B站自己的工作区」里（设置里的 workspace；没配就不限制）。
+    //    会话头那个「刷过的视频」tab 只在里面出现；壳子没有按会话隐藏的开关，所以由客户端拿这个结果
+    //    决定注册不注册那个 view。查的是宿主 workspaceRegistry（list() 里的 sessionIds 已经是活的）。
+    if (req.method === 'GET' && path === '/api/bili-duty/session-scope') {
+      const sid = String(url.searchParams.get('session') || '').trim()
+      const norm = (p) => String(p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+      const want = norm(cfg.workspace)   // 没配 workspace ⇒ 不按工作区限制（保持老行为）
+      let hit = null
+      try {
+        for (const w of (ctx.get('workspaceRegistry')?.list?.() || [])) {
+          if ((w?.sessionIds || []).some((x) => String(x) === sid)) {
+            hit = { path: String(w.path || ''), title: String(w.title || '') }
+            break
+          }
+        }
+      } catch { /* 拿不到注册表 ⇒ 当不在（宁可不显示，也别在别的会话上乱显示） */ }
+      return sendJson(res, 200, {
+        ok: true,
+        session: sid,
+        scope: want,
+        workspace: hit,
+        match: Boolean(!want || (sid && hit && norm(hit.path) === want)),
+      })
+    }
+
+    // ⭐ 2026-11-04：设置页「工作区」下拉的数据源 —— DSH 里**已经建好**的工作区（不是一个要手填的路径字符串）
+    if (req.method === 'GET' && path === '/api/bili-duty/workspaces') {
+      let list = []
+      try {
+        const reg = ctx.get('workspaceRegistry')
+        list = (reg?.list?.() || []).map((w) => ({ id: String(w.id || ''), path: String(w.path || ''), title: String(w.title || '') }))
+      } catch { /* 拿不到注册表 ⇒ 空列表，界面会提示"还没建过工作区" */ }
+      return sendJson(res, 200, { ok: true, workspaces: list, current: String(cfg.workspace || '') })
+    }
+
+    // ⭐ 2026-10-23：设置页「模型」下拉的数据源（provider / model 全从宿主 llm 服务取，不写死）
+    if (req.method === 'GET' && path === '/api/bili-duty/models') {
+      const cat = await listModelCatalog()
+      return sendJson(res, 200, { ok: true, ...cat, chosen: chosenModel() })
+    }
+
     if (req.method === 'POST' && path === '/api/bili-duty/config') {
       const body = await readBody(req)
       const patch = {}
@@ -2654,6 +3026,8 @@ function reportMeta() {
       const savedForGuard = (() => { try { return readJson(join(stateDir, 'config.json'), {}) || {} } catch { return {} } })()
       for (const k of Object.keys(patch)) {
         if (!isBlank(patch[k])) continue
+        // ⭐ 本地补丁：模型这两个字段的"空"是**合法值**（= 跟随当前会话），不该被空值保护挡住
+        if (k === 'modelProvider' || k === 'modelName') continue
         const cur = (cfg[k] !== undefined && cfg[k] !== null) ? cfg[k] : savedForGuard[k]
         const curNotEmpty = cur !== '' && cur !== null && cur !== undefined && !(Array.isArray(cur) && cur.length === 0)
         if (curNotEmpty && !clears.includes(k)) {
@@ -2706,7 +3080,7 @@ function reportMeta() {
         const onlyPicked = url.searchParams.get('picked') === '1'
         const tier = String(url.searchParams.get('tier') || '')
         const state = String(url.searchParams.get('state') || '')   // picked | skipped | commented
-        // ⭐ 2026-11-07（用户要求"拆出来查询排序"）：q = 关键词搜标题/BV/理由；sort = new(默认,按天倒序) | old(按天正序)
+        // ⭐ 2026-11-07（合并包）：q = 关键词搜标题/BV/理由；sort = new(默认,按天倒序) | old(按天正序)
         const q = String(url.searchParams.get('q') || '').trim().toLowerCase()
         const sort = String(url.searchParams.get('sort') || 'new')
         let rows = onlyPicked ? allRows.filter((x) => x.picked) : allRows
@@ -3086,4 +3460,14 @@ function reportMeta() {
 
   // ⚠️ dsh-video-scroll 独立控制台的桥接钩子（合并包附加，删掉这两行只影响控制台）
   try { (globalThis.__videoScrollConsole ??= {}).bili = { run: (why) => runDuty(why || 'manual'), handle, stateDir } } catch { /* 控制台不可用就算了 */ }
+
+  // ⭐ 2026-10-25：历史清理 —— 以前每轮留下的值班会话也归档掉（只碰 bili-duty 桶）。
+  //    延迟几秒：workspaceRegistry 服务未必比这个插件先就绪。
+  try {
+    const t = setTimeout(() => {
+      const dmSid = (() => { try { return String(readDmSession() || '') } catch { return '' } })()
+      archiveDutyBucket(0, new Set(dmSid ? [dmSid] : []))
+    }, 5000)
+    t.unref?.()
+  } catch { /* 忽略 */ }
 }

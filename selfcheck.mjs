@@ -46,9 +46,12 @@ for (const [sub, expectedId] of [['bili', 'bili-scroll'], ['douyin', 'douyin-scr
   mod.name === expectedId
     ? ok(`${sub} 子插件导出 name=${mod.name}（子 fiber 名）`)
     : bad(`${sub} 导出 name=${mod.name}，应为 ${expectedId}`)
-  mod.inject?.includes('webServer') && mod.inject?.includes('tools') && mod.inject?.includes('settings')
-    ? ok(`${sub} inject 完整`)
-    : bad(`${sub} inject 异常: ${JSON.stringify(mod.inject)}`)
+  // ⭐ 2026-11-07 跟进上游 0.7.3：webServer/llm 允许放 optional（headless 里不再卡 pending）
+  const need = ['tools', 'settings']
+  const webServerOk = mod.inject?.includes('webServer') || mod.optional?.includes('webServer')
+  need.every((n) => mod.inject?.includes(n)) && webServerOk
+    ? ok(`${sub} inject 完整（webServer 在 ${mod.inject?.includes('webServer') ? 'inject' : 'optional'}）`)
+    : bad(`${sub} inject 异常: inject=${JSON.stringify(mod.inject)} optional=${JSON.stringify(mod.optional)}`)
 }
 
 console.log('3) 根模块挂载两个子插件')
@@ -72,7 +75,11 @@ console.log('4) client.js 统一入口（v1.3.0）')
     createElement: (...a) => ({ tag: a[0], props: a[1] }),
     Component: class Component {},
   }
-  globalThis.window = { __ModuleLoader__: { load: (spec) => loads.push(spec) } }
+  globalThis.window = {
+    __ModuleLoader__: { load: (spec) => loads.push(spec) },
+    // ⭐ 2026-11-07：bili 2.5.0 面板在挂载时会用 window.addEventListener（焦点刷新），桩里补上
+    addEventListener() {}, removeEventListener() {},
+  }
   globalThis.self = globalThis.window
   globalThis.document = {
     createElement: () => ({ setAttribute() {}, style: {} }),
