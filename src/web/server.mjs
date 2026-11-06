@@ -272,6 +272,19 @@ export function startWeb() {
         kitLog(`她想刷就刷：freeRun=${Boolean(body.freeRun)} 轮/日=${body.maxRoundsPerDay || 0} 花费/日=${body.maxCostPerDay || 0}`)
         return json(res, 200, { ok: true })
       }
+      // ── 检查更新 / 一键更新（git 仓库：pull --ff-only → 自动重启服务）──
+      if (url.pathname === '/api/update/check' && req.method === 'POST') {
+        const { checkAndRecord } = await import('../updater.mjs')
+        return json(res, 200, checkAndRecord())
+      }
+      if (url.pathname === '/api/update/run' && req.method === 'POST') {
+        const { runUpdate } = await import('../updater.mjs')
+        return json(res, 200, runUpdate())
+      }
+      if (url.pathname === '/api/update/status' && req.method === 'GET') {
+        const { currentVersion, gitHead, updateState } = await import('../updater.mjs')
+        return json(res, 200, { version: currentVersion(), head: gitHead(), ...updateState() })
+      }
       if (url.pathname === '/api/quit' && req.method === 'POST') {
         json(res, 200, { ok: true }); kitLog('工作台收到退出指令')
         setTimeout(() => process.exit(0), 200); return

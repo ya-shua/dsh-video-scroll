@@ -90,7 +90,14 @@
       <button data-v="tools">她的工具</button>
       <button data-v="logs">运行日志</button>
     </nav>
-    <div class="railfoot">依附 SnowLuma 运行<br>QQ 连接成功 → 工具就绪<br>大脑 = 自填 key（脱离 DSH）</div>
+    <div class="railfoot">
+      <div style="margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:6px"><b style="font-size:12px">v<span id="upd-ver">…</span></b><button class="ghost" id="upd-check" style="padding:2px 8px;font-size:11px">检查更新</button></div>
+        <div id="upd-note" style="margin-top:5px;font-size:11px;color:var(--dim);word-break:break-all">—</div>
+        <button class="act" id="upd-run" style="margin-top:6px;display:none;width:100%;font-size:12px">⬇ 一键更新</button>
+      </div>
+      <div>依附 SnowLuma 运行<br>QQ 连接成功 → 工具就绪<br>大脑 = 自填 key（脱离 DSH）</div>
+    </div>
   </div>
   <main>
     <div id="view-panel" class="view" style="display:none">
@@ -514,6 +521,31 @@ async function loadTools() {
     $('tool-list').innerHTML = t.map(x => `<li><code>${x.name}</code> — ${x.description}</li>`).join('')
   } catch { $('tool-list').innerHTML = '<li>读取失败</li>' }
 }
+// ── 左下角更新组件 ──
+async function updateCheck() {
+  try {
+    const r = await api('/api/update/check', { method: 'POST' })
+    $('upd-ver').textContent = r.version || '?'
+    const note = $('upd-note')
+    note.className = r.ok && r.upToDate ? 'muted' : 'err'
+    note.textContent = r.ok && r.upToDate ? '已是最新（' + (r.head || '').slice(0, 8) + '）' : (r.note || (r.upToDate ? '已是最新' : '检查失败'))
+    if (r.ok && !r.upToDate && r.behind > 0) {
+      note.textContent = '有新版本：落后 ' + r.behind + ' 个提交' + (r.newCommits && r.newCommits.length ? '（' + r.newCommits[0] + '…）' : '')
+      $('upd-run').style.display = 'inline-block'
+    } else $('upd-run').style.display = 'none'
+  } catch (e) { $('upd-note').innerHTML = '<span class="err">' + e.message + '</span>' }
+}
+async function updateRun() {
+  try {
+    $('upd-run').disabled = true
+    const r = await api('/api/update/run', { method: 'POST' })
+    $('upd-note').innerHTML = r.ok ? '<span class="muted">更新中：拉取 → 自动重启服务。约 20 秒后刷新本页即是新版本。</span>' : '<span class="err">' + (r.reason || '未能开始') + '</span>'
+    if (!r.ok) $('upd-run').disabled = false
+  } catch (e) { $('upd-note').innerHTML = '<span class="err">' + e.message + '</span>' }
+}
+$('upd-check').onclick = updateCheck
+$('upd-run').onclick = updateRun
+updateCheck()
 loadBrain(); loadTools(); poll(); setInterval(poll, 6000)
 </script>
 </body>
