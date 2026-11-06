@@ -1,0 +1,4 @@
+原版参考/
+__pycache__/
+*.log
+state/
