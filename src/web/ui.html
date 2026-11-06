@@ -12,7 +12,7 @@
   * { box-sizing:border-box; margin:0; }
   body { background:var(--bg); color:var(--ink); font:14px/1.65 "Segoe UI","Microsoft YaHei",sans-serif; }
   .app { display:grid; grid-template-columns:212px 1fr; min-height:100vh; }
-  .rail { background:#121828; border-right:1px solid var(--line); padding:20px 14px; }
+  .rail { display:flex; flex-direction:column; align-self:start; position:sticky; top:0; height:100vh; box-sizing:border-box; overflow-y:auto; background:#121828; border-right:1px solid var(--line); padding:20px 14px; }
   .brand { font-size:16px; font-weight:700; margin-bottom:2px; }
   .brand small { display:block; font-weight:400; color:var(--dim); font-size:11px; }
   nav { margin-top:18px; display:flex; flex-direction:column; gap:4px; }
