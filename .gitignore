@@ -1,0 +1,20 @@
+# 刷视频插件（整合仓库：dsh-video-scroll 合并插件 + snow-video-kit 工具包）
+# 参考克隆（原版参考/，含上游 git 仓）不入库
+原版参考/
+
+# 运行时数据 / 用户资料（不入库）
+snow-video-kit/state/
+snow-video-kit/data/
+snow-video-kit/config.json
+snow-video-kit/backups/
+snow-video-kit/logs/
+*.log
+
+# 依赖与缓存
+node_modules/
+__pycache__/
+*.pyc
+
+# 环境与密钥
+.env
+token.txt
