@@ -1,0 +1,49 @@
+{
+  "snow": {
+    "homeDir": "D:\\AI\\QQ大肥鱼\\SnowLuma",
+    "httpUrl": "http://127.0.0.1:3000",
+    "probeEverySec": 30,
+    "webuiUrl": "http://127.0.0.1:5099"
+  },
+  "brain": {
+    "baseUrl": "https://api.deepseek.com/v1",
+    "model": "deepseek-chat",
+    "enabled": true,
+    "maxToolRounds": 14,
+    "temperature": 0.6
+  },
+  "bili": {
+    "enabled": true,
+    "home": "",
+    "python": "",
+    "tools": "bili_search,bili_subtitle,bili_comments,bili_video_info,bili_cover,bili_frames,bili_recommend,bili_hot_videos,duty_paths,duty_report_append,duty_seen_append,duty_seen_recent,duty_digest_append",
+    "perDay": 5
+  },
+  "douyin": {
+    "enabled": true,
+    "home": "",
+    "node": "",
+    "python": "",
+    "toolsDir": "",
+    "evidenceLimit": 12,
+    "perDay": 10,
+    "autoSend": false
+  },
+  "schedule": {
+    "enabled": false,
+    "noon": ["12:00", "14:00"],
+    "night": ["00:30", "08:30"]
+  },
+  "web": {
+    "port": 8412,
+    "host": "127.0.0.1"
+  },
+  "agent": {
+    "freeRun": false,
+    "maxRoundsPerDay": 0,
+    "maxCostPerDay": 0
+  },
+  "memory": {
+    "dbPath": ""
+  }
+}
