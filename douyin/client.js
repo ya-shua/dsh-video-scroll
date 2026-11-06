@@ -305,13 +305,13 @@ button[data-dy-groupbtn][data-open]{color:var(--dsw-alias-label-secondary,#c9ccd
       const [cwSecDraft, setCwSecDraft] = React.useState(null)
       // dsh 入口路径（输入框草稿）—— 2026-10-23 加，见「出问题了？」卡片
       const [dshBinDraft, setDshBinDraft] = React.useState(null)
-      /* ⭐ 面板三组折叠（2026-10-25 重排）—— 两个状态，默认都收起。
+      /* ⭐ 面板三组折叠（2026-10-25 重排）—— 2026-11-07 起默认**全部展开**（用户要求"窗口压缩的功能全部解放出来"）。
        * 🔴 必须放在这里（和其它 useState 一起、在 `if (!st || !cfg) return` 之前），
        *    绝不能塞进条件分支：React 的 hook 顺序一变，整页就白。
-       *    · foldErr = 「出问题才看」（体检 / dsh 入口 / 关于 / MCP）
-       *    · foldCfg = 「一次配好」（策略 / 桌宠 / 消息与记忆） */
-      const [foldErr, setFoldErr] = React.useState(false)
-      const [foldCfg, setFoldCfg] = React.useState(false)
+       *    · foldErr = 「体检 / dsh 入口 / 关于 / MCP」（原来"出问题才看"，现默认展开，仍可手动收起）
+       *    · foldCfg = 「策略 / 桌宠 / 消息与记忆」（原来"一次配好"，现默认展开，仍可手动收起） */
+      const [foldErr, setFoldErr] = React.useState(true)
+      const [foldCfg, setFoldCfg] = React.useState(true)
 
       const say = (t, tone) => { setMsg(t); setMsgTone(tone || '') }
 

@@ -352,6 +352,20 @@ function WatchTab() {
         } catch (e) { setReport('读不到报告：' + String(e?.message ?? e)) } finally { setBusy('') }
       }
 
+      /* ⭐ 2026-11-07（用户要求"窗口压缩的功能全部解放出来"）：挂载即展开——
+       *    「它刷过的视频」「今天的报告」原来要点一下才读出来，现在打开面板自动读好摆在那，
+       *    按钮「收起/收起报告」仍然可用（想收回去随时收）。只跑一次，不跟 5 秒轮询抢。 */
+      React.useEffect(() => {
+        const t = setTimeout(() => {
+          onLoadWatched('', '', 0)
+          jget('/report').then((r) => {
+            if (alive.current) setReport(r && r.exists ? (r.text || '（报告是空的）') : '今天还没有报告 —— 跑一轮之后就有了')
+          }).catch(() => {})
+        }, 900)   // 跟收藏夹列表一样缓一拍，别跟 /status 抢第一秒
+        return () => clearTimeout(t)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [])
+
       // ⭐ 复核评论：接口回"发送成功"≠ 公开可见（新号/风控会进审核，那时候连 @ 都不会推）
       //    所以让宿主真去拉一次评论列表 / 楼中楼，确认那条到底在不在。
       const onVerify = async () => {
@@ -1171,13 +1185,13 @@ button[data-dy-groupbtn][data-open]{color:var(--dsw-alias-label-secondary,#c9ccd
       const [cwSecDraft, setCwSecDraft] = React.useState(null)
       // dsh 入口路径（输入框草稿）—— 2026-10-23 加，见「出问题了？」卡片
       const [dshBinDraft, setDshBinDraft] = React.useState(null)
-      /* ⭐ 面板三组折叠（2026-10-25 重排）—— 两个状态，默认都收起。
+      /* ⭐ 面板三组折叠（2026-10-25 重排）—— 2026-11-07 起默认**全部展开**（用户要求"窗口压缩的功能全部解放出来"）。
        * 🔴 必须放在这里（和其它 useState 一起、在 `if (!st || !cfg) return` 之前），
        *    绝不能塞进条件分支：React 的 hook 顺序一变，整页就白。
-       *    · foldErr = 「出问题才看」（体检 / dsh 入口 / 关于 / MCP）
-       *    · foldCfg = 「一次配好」（策略 / 桌宠 / 消息与记忆） */
-      const [foldErr, setFoldErr] = React.useState(false)
-      const [foldCfg, setFoldCfg] = React.useState(false)
+       *    · foldErr = 「体检 / dsh 入口 / 关于 / MCP」（原来"出问题才看"，现默认展开，仍可手动收起）
+       *    · foldCfg = 「策略 / 桌宠 / 消息与记忆」（原来"一次配好"，现默认展开，仍可手动收起） */
+      const [foldErr, setFoldErr] = React.useState(true)
+      const [foldCfg, setFoldCfg] = React.useState(true)
 
       const say = (t, tone) => { setMsg(t); setMsgTone(tone || '') }
 

@@ -363,6 +363,20 @@ function WatchTab() {
         } catch (e) { setReport('读不到报告：' + String(e?.message ?? e)) } finally { setBusy('') }
       }
 
+      /* ⭐ 2026-11-07（用户要求"窗口压缩的功能全部解放出来"）：挂载即展开——
+       *    「它刷过的视频」「今天的报告」原来要点一下才读出来，现在打开面板自动读好摆在那，
+       *    按钮「收起/收起报告」仍然可用（想收回去随时收）。只跑一次，不跟 5 秒轮询抢。 */
+      React.useEffect(() => {
+        const t = setTimeout(() => {
+          onLoadWatched('', '', 0)
+          jget('/report').then((r) => {
+            if (alive.current) setReport(r && r.exists ? (r.text || '（报告是空的）') : '今天还没有报告 —— 跑一轮之后就有了')
+          }).catch(() => {})
+        }, 900)   // 跟收藏夹列表一样缓一拍，别跟 /status 抢第一秒
+        return () => clearTimeout(t)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [])
+
       // ⭐ 复核评论：接口回"发送成功"≠ 公开可见（新号/风控会进审核，那时候连 @ 都不会推）
       //    所以让宿主真去拉一次评论列表 / 楼中楼，确认那条到底在不在。
       const onVerify = async () => {
