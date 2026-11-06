@@ -1009,6 +1009,7 @@ async function updateRun() {
 }
 $('upd-btn').onclick = updateRun
 updateCheck(true)
+setInterval(() => updateCheck(true), 600000) // ⭐ 10 分钟自动复查一次：git 上有新版本时左下角亮黄提示
 loadBrain(); poll(); setInterval(poll, 6000)
 </script>
 </body>

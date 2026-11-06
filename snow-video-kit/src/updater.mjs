@@ -31,18 +31,41 @@ export function remoteName() {
   return r.ok ? r.out.split(/\r?\n/)[0] || '' : ''
 }
 
-/** 检查更新：git fetch + 对比 origin/main 与本地 HEAD */
+/**
+ * ⭐ 2026-11-07：私有仓库的运行时凭据。
+ *    token 只从本机文件临时读进内存拼 URL，**不写进任何文件、不打日志**（出错文本自动打码）。
+ *    没有 token 文件时退回原 URL（公开仓也够用）。
+ */
+const TOKEN_FILE = 'C:/Users/Lenovo/Desktop/token.txt'
+export function scrubSecret(s) {
+  try {
+    const tok = fs.readFileSync(TOKEN_FILE, 'utf8').trim()
+    return tok ? String(s).split(tok).join('***') : String(s)
+  } catch { return String(s) }
+}
+function fetchTarget() {
+  try {
+    const url = execFileSync(fs.existsSync(GIT) ? GIT : 'git', ['remote', 'get-url', 'origin'], { cwd: KIT_DIR, timeout: 8000, encoding: 'utf8' }).trim()
+    const m = /^https:\/\/github\.com\/([^/]+)\//.exec(url)
+    const tok = fs.readFileSync(TOKEN_FILE, 'utf8').trim()
+    if (m && tok && !/\s/.test(tok)) return { url: url.replace('https://github.com/', `https://${m[1]}:${tok}@github.com/`), tok }
+  } catch { /* 读不到就退回 origin */ }
+  return { url: '', tok: '' }
+}
+
+/** 检查更新：git fetch + 对比 FETCH_HEAD 与本地 HEAD */
 export function checkUpdate() {
   const version = currentVersion()
   const head = gitHead()
   const remote = remoteName()
   if (!remote) return { ok: true, version, head, upToDate: true, note: '本地仓库未配置远程（git remote add origin <url> 后可一键拉取更新）', behind: 0, newCommits: [] }
-  const f = git(['fetch', remote, '--quiet'], 60000)
-  if (!f.ok) return { ok: false, version, head, note: 'fetch 失败：' + (f.error || '无法连接远程'), behind: -1 }
-  const cmp = git(['rev-list', '--count', `HEAD..${remote}/main`], 30000)
-  if (!cmp.ok) return { ok: false, version, head, note: '对比失败：' + (cmp.error || ''), behind: -1 }
+  const { url, tok } = fetchTarget()
+  const f = git(['fetch', url || remote, 'main', '--quiet'], 60000)
+  if (!f.ok) return { ok: false, version, head, note: 'fetch 失败：' + scrubSecret(f.error || '无法连接远程'), behind: -1 }
+  const cmp = git(['rev-list', '--count', 'HEAD..FETCH_HEAD'], 30000)
+  if (!cmp.ok) return { ok: false, version, head, note: '对比失败：' + scrubSecret(cmp.error || ''), behind: -1 }
   const behind = Number(cmp.out) || 0
-  const log = behind ? git(['log', `--format=%h %s`, `HEAD..${remote}/main`], 15000) : { out: '' }
+  const log = behind ? git(['log', '--format=%h %s', 'HEAD..FETCH_HEAD'], 15000) : { out: '' }
   return {
     ok: true, version, head, remote,
     upToDate: behind === 0, behind,

@@ -6,11 +6,14 @@
  * pull 不可能碰到它们；更新前再整份备份到 backups/update-<时间戳>/，双保险。
  * 独立于旧服务进程（旧进程死了不影响本进程收尾）；进度写 state/update.json。
  */
-import { execSync, spawn } from 'node:child_process'
+import { execSync, execFileSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import http from 'node:http'
 import { KIT_DIR, kitLog } from './config.js'
+import { scrubSecret } from './updater.mjs'
+
+const GITBIN = fs.existsSync('C:/Git/cmd/git.exe') ? 'C:/Git/cmd/git.exe' : 'git'
 
 const UPD = path.join(KIT_DIR, 'state', 'update.json')
 const say = (msg) => {
@@ -90,16 +93,21 @@ try {
   process.exit(1)
 }
 
-// ── 第 2 步：拉取（--ff-only，失败时工作区原样不动）──
-say('开始拉取更新（git pull --ff-only）…')
+// ── 第 2 步：拉取（fetch + merge --ff-only，失败时工作区原样不动）──
+// ⭐ 2026-11-07：私有仓的 fetch 用运行时令牌 URL（token 只在内存，出错文本自动打码）。
+//    整合仓库后 KIT_DIR 是父仓库的子目录 —— git 会自动向上找到父仓库，一条更新连插件一起带上。
+say('开始拉取更新（git fetch + merge --ff-only）…')
 try {
-  execSync('git pull --ff-only', { cwd: KIT_DIR, timeout: 120000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
-  say('pull 完成')
+  const { fetchTarget } = await import('./updater.mjs')
+  const { url, tok } = fetchTarget()
+  const out = execFileSync(GITBIN, ['fetch', url || 'origin', 'main'], { cwd: KIT_DIR, timeout: 120000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  execFileSync(GITBIN, ['merge', '--ff-only', 'FETCH_HEAD'], { cwd: KIT_DIR, timeout: 60000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  say('fetch + merge 完成')
 } catch (e) {
-  const reason = String((e.stdout || '') + (e.stderr || '')).trim().slice(0, 300)
-  say('pull 失败（你的资料和原版本都没动）：' + reason)
+  const reason = scrubSecret(String((e.stdout || '') + (e.stderr || '')).trim().slice(0, 300))
+  say('拉取失败（你的资料和原版本都没动）：' + reason)
   const st = JSON.parse(fs.readFileSync(UPD, 'utf8'))
-  st.kind = 'error'; st.error = 'git pull 失败（资料原样未动）：' + reason
+  st.kind = 'error'; st.error = 'git 拉取失败（资料原样未动）：' + reason
   fs.writeFileSync(UPD, JSON.stringify(st, null, 2), 'utf8')
   process.exit(1)
 }
