@@ -112,7 +112,7 @@
         <div class="hero-chips">
           <span class="chip" id="chip-qq"><span class="dot" id="dot-qq"></span>QQ 检测中</span>
           <span class="chip" id="chip-brain"><span class="dot" id="dot-brain"></span>大脑 检测中</span>
-          <span class="chip" id="chip-cost">今日 ¥0.0000</span>
+          <span class="chip" id="chip-cost">今日 ¥0.00</span>
         </div>
         <div class="bars" id="hero-bars"></div>
         <div class="bars-labels" id="hero-bars-labels"></div>
@@ -367,7 +367,8 @@ async function poll() {
     $('hero-bars-labels').innerHTML = (s.series || []).map(d => `<span>${d.day.slice(5)}</span>`).join('')
     if (!$('view-home').style.display || $('view-home').style.display === 'block') loadFeed()
     if (!$('view-brain').style.display || $('view-brain').style.display === 'block') { /* 保持输入框不动 */ }
-  } catch (e) { toast('连接工作台失败：' + e.message) }
+  } catch (e) { toast('连接工作台失败：' + e.message + ' ｜ ' + String(e.stack || '').split('
+')[1] || '') }
 }
 
 async function loadFeed() {

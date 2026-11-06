@@ -82,6 +82,7 @@ function statusSnapshot() {
   }
 }
 
+// .url 快捷方式自动生成已按用户要求移除（桌面唯一入口 = 刷视频面板一键启动.vbs）
 function writeShortcut(port, token) {
   // 桌面快捷方式（放系统桌面；找不到就跳过）
   try {
@@ -174,19 +175,19 @@ export function startWeb() {
         const sess = randomBytes(16).toString('hex')
         sessions.add(sess)
         res.setHeader('set-cookie', `vsk_sess=${sess}; Path=/; SameSite=Strict`)
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'cache-control': 'no-store' })
         return res.end(readFileSync(UI))
       }
       if (!authed(req)) {
         if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
-          res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+          res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
           return res.end(loginHtml())
         }
         return json(res, 403, { error: '未登录' })
       }
       // 页面
       if (req.method === 'GET' && url.pathname === '/') {
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
         return res.end(readFileSync(UI))
       }
       // API
@@ -279,13 +280,13 @@ export function startWeb() {
       if (req.method === 'GET' && url.pathname === '/panel.html') {
         const f = path.join(SCROLL_CONSOLE, 'shell.html')
         if (!existsSync(f)) return json(res, 404, { error: 'shell.html 缺失（dsh-video-scroll 目录被移动？）' })
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
         return res.end(readFileSync(f))
       }
       if (req.method === 'GET' && STATIC_MAP[url.pathname]) {
         const s = STATIC_MAP[url.pathname]
         if (!existsSync(s.file)) return json(res, 404, { error: '缺失 ' + s.file })
-        res.writeHead(200, { 'content-type': s.type })
+        res.writeHead(200, { 'content-type': s.type, 'cache-control': 'no-store' })
         return res.end(readFileSync(s.file))
       }
       if ((url.pathname.startsWith('/api/bili-duty/') || url.pathname.startsWith('/api/douyin-duty/'))) {
@@ -299,7 +300,8 @@ export function startWeb() {
   server.on('error', (e) => kitLog('工作台端口失败：' + String(e?.message || e)))
   server.listen(port, '127.0.0.1', () => {
     kitLog(`工作台已上线: http://127.0.0.1:${port}（令牌见 state/console-token，桌面快捷方式已刷新）`)
-    writeShortcut(port, TOKEN)
+    // writeShortcut 已停用（桌面只留一键启动 VBS）；如需恢复把下一行解注释
+    // writeShortcut(port, TOKEN)
   })
   return () => server.close()
 }
