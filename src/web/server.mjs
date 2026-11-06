@@ -34,9 +34,11 @@ function ensureToken() {
 }
 let TOKEN = ensureToken()
 
-const sessions = new Set()
-const cookieOf = (req) => String(req.headers.cookie || '').match(/vsk_sess=([0-9a-f]+)/)?.[1] || ''
-const authed = (req) => sessions.has(cookieOf(req))
+// 会话 = 工作台令牌本身（cookie/头/查询任一携带即可）——重启不失效，页面不会因服务重启而全灭
+const cookieOf = (req) => String(req.headers.cookie || '').match(/vsk_sess=([^;]+)/)?.[1] || ''
+const authedByCookie = (req) => cookieOf(req) === TOKEN
+const authed = (req) => authedByCookie(req) || (req.headers['x-console-token'] || url0Token(req)) === TOKEN
+function url0Token(req) { try { return new URL(req.url, 'http://127.0.0.1').searchParams.get('token') || '' } catch { return '' } }
 const maskKey = (k) => (k ? k.slice(0, 6) + '…' + k.slice(-4) + `（${k.length}位）` : '')
 
 function json(res, code, data) { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(data)) }
@@ -163,18 +165,16 @@ export function startWeb() {
           try { token = JSON.parse(body).token || '' } catch { /* 忽略 */ }
           const q = url.searchParams.get('token'); if (q) token = q
           if (token !== TOKEN) return json(res, 403, { error: '令牌不对' })
-          const sess = randomBytes(16).toString('hex')
-          sessions.add(sess)
-          res.setHeader('set-cookie', `vsk_sess=${sess}; Path=/; SameSite=Strict`)
+
+          res.setHeader('set-cookie', `vsk_sess=${TOKEN}; Path=/; SameSite=Strict; Max-Age=31536000`)
           json(res, 200, { ok: true })
         })
         return
       }
       // ?token= 自动登录（桌面快捷方式用）
       if (url.pathname === '/' && url.searchParams.get('token') === TOKEN) {
-        const sess = randomBytes(16).toString('hex')
-        sessions.add(sess)
-        res.setHeader('set-cookie', `vsk_sess=${sess}; Path=/; SameSite=Strict`)
+
+        res.setHeader('set-cookie', `vsk_sess=${TOKEN}; Path=/; SameSite=Strict; Max-Age=31536000`)
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'cache-control': 'no-store' })
         return res.end(readFileSync(UI))
       }
