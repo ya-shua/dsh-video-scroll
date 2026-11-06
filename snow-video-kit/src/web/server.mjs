@@ -225,7 +225,7 @@ export function startWeb() {
         kitLog('价格表已更新（工作台）')
         return json(res, 200, { ok: true })
       }
-      // ── 服务台能力（并入工作台）：探活 / 大肥鱼统计 / 白名单日志尾巴 ──
+      // ── 服务台能力（并入工作台）：探活 / 宠物号统计 / 白名单日志尾巴 ──
       if (url.pathname === '/api/services' && req.method === 'GET') {
         const { probeAll } = await import('../services.mjs')
         return json(res, 200, await probeAll())

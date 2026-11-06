@@ -22,7 +22,7 @@ export const douyinHome = () => path.join(dshHome(), 'douyin-duty')
 
 const DEFAULTS = {
   snow: {
-    homeDir: 'D:\\AI\\QQ大肥鱼\\SnowLuma',   // 用来发现 OneBot token
+    homeDir: 'D:\\AI\\QQ宠物号\\SnowLuma',   // 用来发现 OneBot token
     httpUrl: 'http://127.0.0.1:3000',        // OneBot HTTP（get_login_info 探测）
     probeEverySec: 30,                       // QQ 在线探测间隔
   },

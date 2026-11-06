@@ -124,7 +124,7 @@ try {
  *      只要界面开着**任何**一个会话，就会把当前那个人的 id 当成目标返回。
  *      实测：界面开着「枫眠」+ 发给「示例好友」（只给昵称）
  *            ⇒ ok:true, to:"示例好友", to_sec_uid:枫眠的 id。
- *   ② 昵称用 text.includes 匹配 ⇒「大肥鱼」（没有任何人叫这个）命中 3 个人。
+ *   ② 昵称用 text.includes 匹配 ⇒「宠物号」（没有任何人叫这个）命中 3 个人。
  *   ③ 会话项被平移到屏外（left<0）时，点击**毫无反应也不报错**，
  *      然后拿旧会话的 id 去校验 ⇒ 假装切换成功。
  *
@@ -161,7 +161,7 @@ try {
 
   // ② 昵称匹配不许直接把 includes 的结果当成命中
   if (/hits = list\.filter\(\(c\) => c\.text\.includes\(who\)\)\s*\n\s*how =/.test(s)) {
-    bad('昵称匹配又用 text.includes 直接命中了 ——「大肥鱼」会匹配到别人')
+    bad('昵称匹配又用 text.includes 直接命中了 ——「宠物号」会匹配到别人')
   } else if (/hits = list\.filter\(\(c\) => c\.nick === who\)/.test(s)) {
     ok('昵称先精确比对（c.nick === who）')
   } else {
@@ -1499,11 +1499,11 @@ try {
     const sample = [
       '## 值得看',
       '### 7676464210544570726',
-      '**《烟火里的江西》家常美食「香辣鸡爪」** · @烟火里的江西 · 39.6 秒',
+      '**《UP示例A》家常美食「示例菜名」** · @UP示例A · 39.6 秒',
       '**一句话**：一个能照着做的鸡爪方子。',
       '',
-      '### 7691197955269956233',
-      '**星星之火，可以燎原** · @方面面 · 57.6 秒',
+      '### 7600000000000000001',
+      '**示例标题A** · @UP示例B · 57.6 秒',
       '**一句话**：一张纸烧完露出底下的画。',
     ].join('\n')
     const r = spawnSync(process.execPath, ['--input-type=module', '-e',
@@ -1511,7 +1511,7 @@ try {
       + `const s = toastSummary(${JSON.stringify(sample)}, {day:'x'});`
       + `console.log(JSON.stringify({title:s.title,body:s.body,picked:s.picked}))`], { encoding: 'utf8', timeout: 30_000 })
     const j = JSON.parse(String(r.stdout || '{}').trim() || '{}')
-    if (j.picked === 2 && /烟火里的江西/.test(j.body) && /星星之火/.test(j.body)) {
+    if (j.picked === 2 && /UP示例A/.test(j.body) && /示例标题A/.test(j.body)) {
       ok('通知正文能从新格式报告里解析出真标题（不再是"（第 1 条）"）')
     } else bad(`通知解析失败：${JSON.stringify(j).slice(0, 200)}`)
   } catch (e) { bad(`通知解析测试失败：${e.message}`) }

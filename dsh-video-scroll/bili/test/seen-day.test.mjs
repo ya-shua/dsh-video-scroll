@@ -38,7 +38,7 @@ test('2 月 29 日：今年有就用今年，往回退到非闰年就认不出',
 })
 
 test('不是日期的格子返回 null', () => {
-  for (const x of ['', null, undefined, '日期', 'BV1GSnk6aEUz', '13-01', '10-32', '2026-02-30', '昨天', '317831597441']) {
+  for (const x of ['', null, undefined, '日期', 'BV1QQQQQQQQ', '13-01', '10-32', '2026-02-30', '昨天', '317830000000']) {
     assert.equal(seenDay(x, now), null, String(x))
   }
 })

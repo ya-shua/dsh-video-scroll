@@ -29,7 +29,7 @@
 → 总览页点「立即跑一轮」
 ```
 
-用 SnowLuma 自带 Node（`D:\AI\QQ大肥鱼\SnowLuma\node.exe`，v24），机器上不用装全局 Node。
+用 SnowLuma 自带 Node（`D:\AI\QQ宠物号\SnowLuma\node.exe`，v24），机器上不用装全局 Node。
 
 ## 让「她」能调用（QQ 内置工具包）
 
@@ -42,7 +42,7 @@
       config:
         serverName: video-kit
         transport: stdio
-        command: D:\AI\QQ大肥鱼\SnowLuma\node.exe
+        command: D:\AI\QQ宠物号\SnowLuma\node.exe
         args: ['D:\我的电脑\桌面\插件\snow-video-kit\src\kit-mcp.mjs']
         toolCallTimeoutMs: 120000
 ```
@@ -60,7 +60,7 @@
 
 ## 服务台已并入工作台（v0.5.0）
 
-工作台新增「服务」页：7 个服务探活（环形的心 5173 / 留影 5188 / 声来 17878 / 刷视频 8412 / 综合面板 8390 / SnowLuma 5099 / qq-bridge 3100）、各面板打开入口、大肥鱼记忆只读统计、刷视频记忆库统计、5 份日志尾巴。桌面一键启动会**隐藏拉起全部四个插件服务**再开浏览器——原 8420 服务台不再需要（文件保留）。
+工作台新增「服务」页：7 个服务探活（环形的心 5173 / 留影 5188 / 声来 17878 / 刷视频 8412 / 综合面板 8390 / SnowLuma 5099 / qq-bridge 3100）、各面板打开入口、宠物号记忆只读统计、刷视频记忆库统计、5 份日志尾巴。桌面一键启动会**隐藏拉起全部四个插件服务**再开浏览器——原 8420 服务台不再需要（文件保留）。
 
 ## 环形的心插件适配（统一入口）
 

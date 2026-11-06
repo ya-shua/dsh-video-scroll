@@ -2500,7 +2500,7 @@ function reportMeta() {
     const out = []
     const seen = new Set()
     let bad = 0
-    // 评论记录表里的 rpid（形如 `| BVxxxx | 317831597441 | ...`）⇒ 这些视频**确实发出去过**
+    // 评论记录表里的 rpid（形如 `| BVxxxx | 317830000000 | ...`）⇒ 这些视频**确实发出去过**
     const deliveredBvs = new Set()
     for (const raw of text.split(/\r?\n/)) {
       const hit = /\|\s*(BV[0-9A-Za-z]{10})\s*\|\s*(\d{6,})\s*\|/.exec(raw)

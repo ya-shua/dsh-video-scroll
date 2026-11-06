@@ -1,6 +1,6 @@
 /**
  * services.mjs —— 服务台能力（并入工作台）
- * 服务探活（7 个）+ 大肥鱼记忆只读统计 + 白名单日志尾巴。
+ * 服务探活（7 个）+ 宠物号记忆只读统计 + 白名单日志尾巴。
  * 全部只读；探活超时 1.2s；日志只读白名单内的文件。
  */
 import http from 'node:http'
@@ -50,7 +50,7 @@ export async function probeAll() {
   return { at: Date.now(), services: out }
 }
 
-/** 大肥鱼（环形的心）+ 跨平台记忆库 只读统计 */
+/** 宠物号（环形的心）+ 跨平台记忆库 只读统计 */
 export function botStats() {
   const out = { memory: null, video: null }
   try {

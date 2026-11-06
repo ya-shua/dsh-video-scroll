@@ -1,6 +1,6 @@
 {
   "snow": {
-    "homeDir": "D:\\AI\\QQ大肥鱼\\SnowLuma",
+    "homeDir": "D:\\AI\\QQ宠物号\\SnowLuma",
     "httpUrl": "http://127.0.0.1:3000",
     "probeEverySec": 30,
     "webuiUrl": "http://127.0.0.1:5099"

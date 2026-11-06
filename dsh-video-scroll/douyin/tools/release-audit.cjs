@@ -50,7 +50,7 @@ const PRIVACY = [
 /* 主人昵称：拆成两半拼，避免审计脚本自己命中（脚本会被发布） */
 const NICK1 = ['某', '帅气', '用户'].join('')
 const NICK2 = ['吃柠', '檬的', '板栗'].join('')
-const NICK3 = ['贪吃', '的可爱', '大肥鱼'].join('')
+const NICK3 = ['贪吃', '的可爱', '宠物号'].join('')
 const PRIVACY_NICK = [NICK1, NICK2, NICK3]
 
 /* ── ② 不该进包 ── */

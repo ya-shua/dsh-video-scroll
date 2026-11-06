@@ -156,7 +156,7 @@ const listConversations = (ev) => ev(`(function(){
      * ⭐ 昵称要**单独取**，不能拿整段 text 去掉重。
      *    text 是「昵称 时间 最后一句话」，用 text.includes(who) 会把
      *    "别人最后一句话里出现的词" 当成那个人 —— 实测：
-     *    用「大肥鱼」当收件人（没有任何人叫这个名字），会匹配到 3 个人。
+     *    用「宠物号」当收件人（没有任何人叫这个名字），会匹配到 3 个人。
      *    这里给两个候选：昵称元素里的文本 → 没有就退回第一段。
      */
     var nickEl = n.querySelector('[class*="ConversationItemTitle"], [class*="conversationItemTitle"], [class*="nickname"], [class*="Nickname"]');
@@ -285,7 +285,7 @@ async function waitList(ev, { timeoutMs = 15000, settleMs = 600 } = {}) {
  *
  *   ② 【昵称用 includes 匹配】
  *      原来 `list.filter(c => c.text.includes(who))`，text 里含"最后一句话"。
- *      实测：用「大肥鱼」当收件人（没有任何人叫这个名字）会匹配到 3 个人，
+ *      实测：用「宠物号」当收件人（没有任何人叫这个名字）会匹配到 3 个人，
  *            最后发给「哈基米斯基」。用「你好」会匹配到 6 个。
  *      ⇒ 现在：**先比 nick 是否相等**，再用 text 兜底（并标注 matched_by）。
  *
@@ -356,10 +356,10 @@ async function openConversation(ev, send, who, whoId) {
      *   ③ 整段 text 包含        → ❌ **不再自动采用**，只当作"你可能想找"的提示
      *
      *    为什么砍掉 ③：
-     *      text 是「昵称 时间 最后一句话」。用「大肥鱼」当收件人时会命中 3 个人
-     *      （哈基米斯基 / zPz / 拣 —— 因为他们的**最后一句话**里都有"大肥鱼"），
+     *      text 是「昵称 时间 最后一句话」。用「宠物号」当收件人时会命中 3 个人
+     *      （哈基米斯基 / zPz / 拣 —— 因为他们的**最后一句话**里都有"宠物号"），
      *      报错还写成"有多个同名的人"，让人以为真的有 3 个同名。
-     *      实测确认过：一个叫「大肥鱼」的都没有。
+     *      实测确认过：一个叫「宠物号」的都没有。
      *      ⇒ 找不到就叫找不到，别拿别人的话当名字。
      */
     hits = list.filter((c) => c.nick === who)

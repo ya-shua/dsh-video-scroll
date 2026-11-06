@@ -2,7 +2,7 @@
 chcp 65001 >nul
 title 刷视频工具包 · 安装
 set BASE=%~dp0
-set NODE_EXE=D:\AI\QQ大肥鱼\SnowLuma\node.exe
+set NODE_EXE=D:\AI\QQ宠物号\SnowLuma\node.exe
 if not exist "%NODE_EXE%" set NODE_EXE=node
 
 echo ============================================
