@@ -90,7 +90,8 @@
     <div class="brand">🎬 刷视频工作台<small>snow-video-kit</small></div>
     <nav>
       <button data-v="home" class="on">总览</button>
-      <button data-v="panel">综合面板</button>
+      <button data-v="bili">📺 刷B站</button>
+      <button data-v="douyin">🎵 刷抖音</button>
       <button data-v="brain">大脑</button>
       <button data-v="memory">记忆库</button>
       <button data-v="usage">花费</button>
@@ -102,12 +103,133 @@
     </div>
   </div>
   <main>
-    <div id="view-panel" class="view" style="display:none">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <h2 style="margin:0">综合面板</h2>
-        <span class="muted">B站/抖音原装全功能面板（扫码登录在里面）。注意：里面的「现在跑一轮」也会走工作台大脑（自填 key）；完整面板功能需要 DSH 正在运行。</span>
+    <!-- ═══ 刷B站（原生页 · 2026-11-07 拆掉原版窗口后新建；按钮按使用频率排序）═══ -->
+    <div id="view-bili" class="view" style="display:none">
+      <h2>📺 刷B站 <span class="muted" id="nb-ver" style="font-size:12px"></span></h2>
+      <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="act" id="nb-run">▶ 现在跑一轮</button>
+        <button class="ghost" id="nb-report">📄 最新日报</button>
+        <button class="ghost" id="nb-login">🔑 扫码登录</button>
+        <button class="ghost" id="nb-refresh">↻ 刷新</button>
+        <span id="nb-badges" style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap"></span>
       </div>
-      <iframe id="panel-frame" src="/panel.html" style="width:100%;height:calc(100vh - 150px);border:1px solid var(--line);border-radius:13px;background:#0f1420"></iframe>
+      <div class="card" id="nb-login-box" style="display:none;margin-top:14px">
+        <h3>🔑 扫码登录 <span class="muted" id="nb-login-state" style="font-size:12px;font-weight:400"></span></h3>
+        <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+          <img id="nb-qr" alt="二维码" style="width:170px;height:170px;border-radius:10px;background:#fff;padding:6px;box-sizing:border-box">
+          <div style="flex:1;min-width:220px">
+            <div class="muted" style="font-size:12.5px;line-height:1.8">手机打开B站 → 扫一扫，扫这个码 → 在手机上点「确认登录」。<br>这里会自动变绿；三分钟没扫就点「重新出码」。</div>
+            <button class="ghost" id="nb-login-again" style="margin-top:8px">重新出码</button>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>📺 它刷过的视频 <span class="muted" id="nb-wtotal" style="font-size:12px;font-weight:400"></span></h3>
+        <div id="nb-chips" style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <input class="wide" id="nb-wq" placeholder="搜标题 / BV号 / 理由（回车查询）" style="max-width:320px;margin:0">
+          <select id="nb-wsort" style="background:var(--card2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit">
+            <option value="new">最新优先</option><option value="old">最旧优先</option>
+          </select>
+        </div>
+        <div id="nb-watched" style="display:flex;flex-direction:column;gap:10px;max-height:460px;overflow:auto"><span class="muted">加载中…</span></div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>📄 今天的报告 <button class="ghost" id="nb-report-toggle" style="padding:2px 10px;font-size:11px">收起</button></h3>
+        <div class="logbox" id="nb-report-body">…</div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>⚙️ 设置</h3>
+        <div class="grid cols2">
+          <div class="card" style="background:var(--card2)">
+            <h3>⏰ 什么时候自己跑</h3>
+            <div class="kv" style="margin-top:8px">
+              <span style="display:flex;gap:8px;align-items:center;width:100%">峰谷时段自动刷 <input type="checkbox" id="nb-peak" style="width:auto;margin-left:auto"></span>
+              <span style="display:flex;gap:8px;align-items:center;width:100%">每天最多挑几条 <input type="number" id="nb-perday" min="0" max="50" style="width:80px;margin-left:auto"></span>
+            </div>
+          </div>
+          <div class="card" style="background:var(--card2)">
+            <h3>📨 投递方式</h3>
+            <div class="kv" style="margin-top:8px">
+              <span style="display:flex;gap:8px;align-items:center;width:100%">方式
+                <select id="nb-dmmode" style="margin-left:auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font:inherit">
+                  <option value="only">只发私信（最不打扰）</option>
+                  <option value="both">私信 + 公开评论</option>
+                  <option value="off">都不发</option>
+                </select></span>
+              <span style="display:flex;gap:8px;align-items:center;width:100%">私信双向（收到会回一句） <input type="checkbox" id="nb-dmwatch" style="width:auto;margin-left:auto"></span>
+            </div>
+          </div>
+          <div class="card" style="background:var(--card2)">
+            <h3>💬 评论区</h3>
+            <div class="kv" style="margin-top:8px">
+              <span style="display:flex;gap:8px;align-items:center;width:100%">自动评论 <input type="checkbox" id="nb-autocomment" style="width:auto;margin-left:auto"></span>
+              <span style="display:flex;gap:8px;align-items:center;width:100%">每轮最多几条 <input type="number" id="nb-cpr" min="0" max="20" style="width:70px;margin-left:auto"></span>
+              <span style="display:flex;gap:8px;align-items:center;width:100%">@你的昵称 <input id="nb-mention" style="width:140px;margin-left:auto"></span>
+              <span style="display:flex;gap:8px;align-items:center;width:100%">有人回复就回 <input type="checkbox" id="nb-replyback" style="width:auto;margin-left:auto"></span>
+            </div>
+          </div>
+          <div class="card" style="background:var(--card2)">
+            <h3>🔎 关注什么（一行一个关键词）</h3>
+            <textarea id="nb-kws" rows="4" style="width:100%;margin-top:8px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit"></textarea>
+          </div>
+        </div>
+        <div style="margin-top:12px"><button class="act" id="nb-save">💾 保存设置</button> <span class="muted" id="nb-msg"></span></div>
+      </div>
+    </div>
+
+    <!-- ═══ 刷抖音（原生页 · 2026-11-07）═══ -->
+    <div id="view-douyin" class="view" style="display:none">
+      <h2>🎵 刷抖音 <span class="muted" id="dy-ver" style="font-size:12px"></span></h2>
+      <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="act" id="dy-run">▶ 立即跑一轮</button>
+        <button class="ghost" id="dy-report">📄 最新日报</button>
+        <button class="ghost" id="dy-refresh">↻ 刷新</button>
+        <span id="dy-badges" style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap"></span>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>⚙️ 设置</h3>
+        <div class="grid cols2">
+          <div class="card" style="background:var(--card2)">
+            <h3>⏰ 什么时候自己跑</h3>
+            <div class="kv" style="margin-top:8px">
+              <span style="display:flex;gap:8px;align-items:center;width:100%">峰谷时段自动刷 <input type="checkbox" id="dy-peak" style="width:auto;margin-left:auto"></span>
+              <span style="display:flex;gap:8px;align-items:center;width:100%">每天挑几条 <input type="number" id="dy-perday" min="0" style="width:80px;margin-left:auto"></span>
+            </div>
+          </div>
+          <div class="card" style="background:var(--card2)">
+            <h3>📨 自动发送（挑到值得看的就发给你）</h3>
+            <div class="kv" style="margin-top:8px">
+              <span style="display:flex;gap:8px;align-items:center;width:100%">自动发送 <input type="checkbox" id="dy-autosend" style="width:auto;margin-left:auto"></span>
+              <span style="display:flex;gap:8px;align-items:center;width:100%">发给谁（昵称） <input id="dy-dmto" style="width:130px;margin-left:auto"></span>
+              <span style="display:flex;gap:8px;align-items:center;width:100%">对方稳定 id（sec_uid） <input id="dy-dmtoid" style="width:150px;margin-left:auto"></span>
+            </div>
+          </div>
+          <div class="card" style="background:var(--card2)">
+            <h3>💬 评论区</h3>
+            <div class="kv" style="margin-top:8px">
+              <span style="display:flex;gap:8px;align-items:center;width:100%">在评论区 @你 <input type="checkbox" id="dy-atme" style="width:auto;margin-left:auto"></span>
+              <span style="display:flex;gap:8px;align-items:center;width:100%">每轮评论几条 <input type="number" id="dy-cpr" min="0" style="width:70px;margin-left:auto"></span>
+              <span style="display:flex;gap:8px;align-items:center;width:100%">@的昵称 <input id="dy-mention" style="width:130px;margin-left:auto"></span>
+            </div>
+          </div>
+          <div class="card" style="background:var(--card2)">
+            <h3>📄 日报多细</h3>
+            <div class="kv" style="margin-top:8px">
+              <span style="display:flex;gap:8px;align-items:center;width:100%">详细程度
+                <select id="dy-rl" style="margin-left:auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font:inherit">
+                  <option value="full">满版（每条一两行）</option>
+                  <option value="short">简版</option>
+                </select></span>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:12px"><button class="act" id="dy-save">💾 保存设置</button> <span class="muted" id="dy-msg"></span></div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>📄 今天的报告 <button class="ghost" id="dy-report-toggle" style="padding:2px 10px;font-size:11px">收起</button></h3>
+        <div class="logbox" id="dy-report-body">…</div>
+      </div>
     </div>
     <div id="view-home" class="view">
       <div class="hero">
@@ -274,6 +396,8 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   document.querySelectorAll('nav button').forEach(x => x.classList.remove('on'))
   document.querySelectorAll('.view').forEach(v => v.style.display = 'none')
   b.classList.add('on'); $('view-' + b.dataset.v).style.display = 'block'
+  if (b.dataset.v === 'bili') loadBili()
+  if (b.dataset.v === 'douyin') loadDouyin()
   if (b.dataset.v === 'logs') loadLogs()
   if (b.dataset.v === 'memory') loadMemory()
   if (b.dataset.v === 'usage') loadUsage()
@@ -442,6 +566,172 @@ $('u-price-save').onclick = async () => {
     if (ins[0].value.trim()) models[ins[0].value.trim()] = { input: Number(ins[1].value) || 0, output: Number(ins[2].value) || 0 }
   }
   try { await api('/api/pricing', { method: 'POST', body: JSON.stringify({ models, default: { input: 4, output: 16 } }) }); toast('价格表已保存'); $('u-pricing').dataset.loaded = ''; loadUsage() } catch (e) { toast('保存失败：' + e.message) }
+}
+
+// ═══ 刷B站 原生页（2026-11-07 拆掉原版窗口后新建；按钮按使用频率排序）═══
+let nbCfg = null, nbKey = null, nbPollT = null, nbWState = '', nbWTier = '', nbWOff = 0, nbReportOpen = true
+const biliApi = (p, opt = {}) => api('/api/bili-duty' + p, opt)
+const nbBadge = (t, good) => `<span class="chip"><span class="dot ${good ? 'ok' : 'bad'}"></span>${t}</span>`
+
+async function loadBili() {
+  try {
+    const s = await biliApi('/status')
+    nbCfg = s.config || {}
+    $('nb-ver').textContent = 'v' + (s.version || '?')
+    const picked = s.autoPicked ?? s.pickedToday ?? 0
+    $('nb-badges').innerHTML = [
+      nbBadge(`自动已挑 ${picked}/${s.perDay ?? nbCfg?.perDay ?? '?'}`, picked < (s.perDay ?? nbCfg?.perDay ?? 0)),
+      nbBadge(s.venvReady ? '环境 ✓' : (s.installing ? '环境装中' : '环境未装'), s.venvReady),
+      nbBadge(s.loggedIn ? 'B站已登录' : '未登录（点 🔑 扫码）', s.loggedIn),
+      s.running ? nbBadge('跑着…', false) : '',
+    ].join('')
+    if (document.activeElement !== $('nb-perday')) $('nb-perday').value = nbCfg.perDay ?? 5
+    $('nb-peak').checked = !!nbCfg.peakValley
+    $('nb-dmmode').value = nbCfg.dmMode || 'only'
+    $('nb-dmwatch').checked = nbCfg.dmWatch !== false
+    $('nb-autocomment').checked = !!nbCfg.autoComment
+    $('nb-cpr').value = nbCfg.commentPerRound ?? 1
+    if (document.activeElement !== $('nb-mention')) $('nb-mention').value = nbCfg.mentionName || ''
+    $('nb-replyback').checked = !!nbCfg.replyToComments
+    if (document.activeElement !== $('nb-kws')) $('nb-kws').value = (nbCfg.keywords || []).join('\n')
+    nbChips(); loadNbWatched()
+    if (nbReportOpen) loadNbReport()
+  } catch (e) { toast('B站状态读取失败：' + e.message) }
+}
+
+function nbChips() {
+  const chip = (v, label, cur) => `<button class="ghost" data-nbchip="${v}" style="padding:3px 12px;font-size:12px;${cur === v ? 'border-color:var(--acc);color:var(--acc)' : ''}">${label}</button>`
+  $('nb-chips').innerHTML =
+    [['', '全部'], ['picked', '挑了'], ['skipped', '跳过'], ['commented', '发给你了']].map(([v, l]) => chip(v, l, nbWState)).join('') +
+    ['值得看', '可以看', '不值当'].map((v) => chip(v, v, nbWTier)).join('')
+  $('nb-chips').querySelectorAll('[data-nbchip]').forEach((b) => b.onclick = () => {
+    const v = b.dataset.nbchip
+    if (['', 'picked', 'skipped', 'commented'].includes(v)) nbWState = (nbWState === v ? '' : v)
+    else nbWTier = (nbWTier === v ? '' : v)
+    nbWOff = 0; nbChips(); loadNbWatched()
+  })
+}
+
+async function loadNbWatched() {
+  try {
+    const kw = $('nb-wq').value.trim()
+    const q = `/watched?limit=30&offset=${nbWOff}` + (nbWState ? '&state=' + nbWState : '') +
+      (nbWTier ? '&tier=' + encodeURIComponent(nbWTier) : '') + (kw ? '&q=' + encodeURIComponent(kw) : '') +
+      '&sort=' + encodeURIComponent($('nb-wsort').value)
+    const r = await biliApi(q)
+    $('nb-wtotal').textContent = `共 ${r.total || 0} 条`
+    const rows = r.rows || []
+    $('nb-watched').innerHTML = rows.length ? rows.map((x) =>
+      `<div style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:8px">
+        ${x.bvid ? `<img src="/api/bili-duty/cover?bv=${x.bvid}" loading="lazy" style="width:86px;border-radius:8px">` : ''}
+        <div style="flex:1;min-width:0">
+          <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><a href="${escAttr(x.url || '#')}" target="_blank" rel="noreferrer" style="color:var(--ink)">${esc(x.title || x.bvid || '')}</a></div>
+          <div class="muted" style="font-size:12px;margin-top:3px">${x.day || ''}${x.tier ? ' · ' + x.tier : ''} · ${x.picked ? '挑了' : '跳过'}${(x.commented || x.delivered) ? ' · 发给你了' : ''}</div>
+          ${x.why ? `<div class="muted" style="font-size:12px;margin-top:3px">${esc(x.why)}</div>` : ''}
+        </div>
+      </div>`).join('') : '<span class="muted">这一类还没有记录 —— 跑一轮之后就有了</span>'
+  } catch (e) { $('nb-watched').innerHTML = '<span class="err">读取失败：' + e.message + '</span>' }
+}
+
+async function loadNbReport() {
+  try { const r = await api('/api/report?kind=bili'); $('nb-report-body').textContent = r.file ? '【' + r.file + '】\n\n' + (r.content || '') : '今天还没有报告 —— 跑一轮之后就有了' } catch (e) { $('nb-report-body').textContent = '读取失败：' + e.message }
+}
+
+async function nbLoginStart() {
+  $('nb-login-box').style.display = 'block'
+  $('nb-login-state').textContent = '出码中…'
+  try {
+    const r = await biliApi('/login/start', { method: 'POST', body: '{}' })
+    if (r.qr) { $('nb-qr').src = r.qr; $('nb-login-state').textContent = '等待扫码…' }
+    else { $('nb-login-state').textContent = '没画出二维码 —— 手动打开这个链接登录：' + (r.url || '') }
+    nbKey = r.key || null
+    if (nbKey) { clearTimeout(nbPollT); nbPoll() }
+  } catch (e) { $('nb-login-state').textContent = '出码失败：' + e.message }
+}
+async function nbPoll() {
+  if (!nbKey) return
+  try {
+    const r = await biliApi('/login/poll', { method: 'POST', body: JSON.stringify({ key: nbKey }) })
+    if (r.state === 'ok') { $('nb-login-state').textContent = '✅ 登录成功'; toast('B站登录成功'); loadBili(); return }
+    if (r.state === 'expired') { $('nb-login-state').textContent = '二维码过期了 —— 点「重新出码」'; return }
+    $('nb-login-state').textContent = r.state === 'scanned' ? '手机已扫，等确认…' : '等待扫码…'
+  } catch { /* 网络抖一下就再等 */ }
+  nbPollT = setTimeout(nbPoll, 3000)
+}
+
+$('nb-run').onclick = async (e) => { e.target.disabled = true; try { const r = await api('/api/run', { method: 'POST', body: JSON.stringify({ kind: 'bili' }) }); toast(r.ok ? 'B站值班轮已在后台开始' : (r.reason || '未启动')); loadBili() } catch (err) { toast(err.message) } e.target.disabled = false }
+$('nb-report').onclick = () => showReport('bili')
+$('nb-login').onclick = nbLoginStart
+$('nb-login-again').onclick = nbLoginStart
+$('nb-refresh').onclick = loadBili
+$('nb-wq').addEventListener('keydown', (e) => { if (e.key === 'Enter') { nbWOff = 0; loadNbWatched() } })
+$('nb-wsort').onchange = () => { nbWOff = 0; loadNbWatched() }
+$('nb-report-toggle').onclick = () => { nbReportOpen = !nbReportOpen; $('nb-report-body').style.display = nbReportOpen ? 'block' : 'none'; $('nb-report-toggle').textContent = nbReportOpen ? '收起' : '展开'; if (nbReportOpen) loadNbReport() }
+$('nb-save').onclick = async () => {
+  const patch = {
+    perDay: Number($('nb-perday').value) || 0,
+    peakValley: $('nb-peak').checked,
+    dmMode: $('nb-dmmode').value,
+    dmWatch: $('nb-dmwatch').checked,
+    autoComment: $('nb-autocomment').checked,
+    commentPerRound: Number($('nb-cpr').value) || 0,
+    mentionName: $('nb-mention').value.trim(),
+    replyToComments: $('nb-replyback').checked,
+    keywords: $('nb-kws').value.split('\n').map((s) => s.trim()).filter(Boolean),
+  }
+  try { const r = await biliApi('/config', { method: 'POST', body: JSON.stringify(patch) }); if (r.config) nbCfg = r.config; $('nb-msg').textContent = '已保存 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }); toast('B站设置已保存') } catch (e) { $('nb-msg').textContent = '保存失败：' + e.message; toast('B站设置保存失败：' + e.message) }
+}
+
+// ═══ 刷抖音 原生页（2026-11-07 新建）═══
+let dyCfg = null, dyReportOpen = true
+
+async function loadDouyin() {
+  try {
+    const s = await api('/api/douyin-duty/status')
+    dyCfg = s.config || {}
+    const c = dyCfg
+    $('dy-ver').textContent = s.version ? 'v' + s.version : ''
+    let accHtml = ''
+    try { const a = await api('/api/douyin-duty/account'); accHtml = (a.logged_in && a.account && (a.account.nick || a.account.uid)) ? nbBadge('账号 ' + (a.account.nick || a.account.uid), true) : nbBadge('未登录', false) } catch { accHtml = '' }
+    $('dy-badges').innerHTML = [
+      nbBadge(`今日 ${s.ranToday ?? 0}/${s.perDay ?? '?'} 轮`, (s.ranToday ?? 0) < (s.perDay || 1)),
+      nbBadge(`挑了 ${s.pickedToday ?? 0} 条`, true),
+      (!s.canRun) ? nbBadge('跑着…', false) : '',
+      accHtml,
+    ].join('')
+    if (document.activeElement !== $('dy-perday')) $('dy-perday').value = c.perDay ?? 5
+    $('dy-peak').checked = !!c.peakValley
+    $('dy-autosend').checked = c.autoSend !== false
+    if (document.activeElement !== $('dy-dmto')) $('dy-dmto').value = c.dmTo || ''
+    if (document.activeElement !== $('dy-dmtoid')) $('dy-dmtoid').value = c.dmToId || ''
+    $('dy-atme').checked = !!c.commentAtMe
+    $('dy-cpr').value = c.commentPerRun ?? 1
+    if (document.activeElement !== $('dy-mention')) $('dy-mention').value = c.mentionName || ''
+    $('dy-rl').value = ['full', 'brief', 'off'].includes(c.reportLevel) ? c.reportLevel : 'full'
+    if (dyReportOpen) loadDyReport()
+  } catch (e) { toast('抖音状态读取失败：' + e.message) }
+}
+async function loadDyReport() {
+  try { const r = await api('/api/report?kind=douyin'); $('dy-report-body').textContent = r.file ? '【' + r.file + '】\n\n' + (r.content || '') : '今天还没有报告 —— 跑一轮之后就有了' } catch (e) { $('dy-report-body').textContent = '读取失败：' + e.message }
+}
+
+$('dy-run').onclick = async (e) => { e.target.disabled = true; try { const r = await api('/api/run', { method: 'POST', body: JSON.stringify({ kind: 'douyin' }) }); toast(r.ok ? '抖音值班轮已在后台开始' : (r.reason || '未启动')); loadDouyin() } catch (err) { toast(err.message) } e.target.disabled = false }
+$('dy-report').onclick = () => showReport('douyin')
+$('dy-refresh').onclick = loadDouyin
+$('dy-report-toggle').onclick = () => { dyReportOpen = !dyReportOpen; $('dy-report-body').style.display = dyReportOpen ? 'block' : 'none'; $('dy-report-toggle').textContent = dyReportOpen ? '收起' : '展开'; if (dyReportOpen) loadDyReport() }
+$('dy-save').onclick = async () => {
+  const patch = {
+    perDay: Number($('dy-perday').value) || 0,
+    peakValley: $('dy-peak').checked,
+    autoSend: $('dy-autosend').checked,
+    dmTo: $('dy-dmto').value.trim(),
+    dmToId: $('dy-dmtoid').value.trim(),
+    commentAtMe: $('dy-atme').checked,
+    commentPerRun: Number($('dy-cpr').value) || 0,
+    mentionName: $('dy-mention').value.trim(),
+    reportLevel: $('dy-rl').value,
+  }
+  try { const r = await api('/api/douyin-duty/config', { method: 'POST', body: JSON.stringify(patch) }); if (r.config) dyCfg = r.config; $('dy-msg').textContent = '已保存 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }); toast('抖音设置已保存') } catch (e) { $('dy-msg').textContent = '保存失败：' + e.message; toast('抖音设置保存失败：' + e.message) }
 }
 
 // ── 左下角更新组件：状态提示 + 可交互一键更新 ──
