@@ -62,7 +62,6 @@ function writeShortcut(port, key) {
   const url = `http://127.0.0.1:${port}/?k=${key}`
   const dir = ['D:\\我的电脑\\桌面', path.join(os.homedir(), 'Desktop')].find((d) => existsSync(d))
   if (!dir) return
-  try { writeFileSync(path.join(dir, '刷视频控制台.url'), `[InternetShortcut]\nURL=${url}\nIconIndex=0\n`, 'utf8') } catch { /* 写不进就算了 */ }
 }
 
 function proxyChild(req, res, kind, url) {
@@ -93,7 +92,7 @@ function createServer() {
       const stat = STATIC[url.pathname]
       if (req.method === 'GET' && stat) {
         if (!existsSync(stat.file)) { res.writeHead(404); return res.end('missing ' + stat.file) }
-        res.writeHead(200, { 'content-type': stat.type })
+        res.writeHead(200, { 'content-type': stat.type, 'cache-control': 'no-store' })
         return res.end(readFileSync(stat.file))
       }
       if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
