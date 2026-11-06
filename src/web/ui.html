@@ -20,6 +20,10 @@
   nav button.on { background:var(--acc); color:#fff; }
   nav button:not(.on):hover { background:#1c2438; }
   .railfoot { margin-top:auto; color:var(--dim); font-size:11px; line-height:1.7; padding-top:22px; }
+  .railfoot .upd-line { display:flex; align-items:center; gap:6px; }
+  .railfoot .upd-hint { flex:1; min-width:0; }
+  .railfoot .upd-btn-pulse { animation:updpulse 1.8s ease-in-out infinite; }
+  @keyframes updpulse { 0%,100% { opacity:1 } 50% { opacity:.55 } }
   main { padding:26px 30px 60px; }
   h2 { font-size:16px; margin:0 0 14px; }
   .grid { display:grid; gap:14px; }
@@ -91,12 +95,8 @@
       <button data-v="logs">运行日志</button>
     </nav>
     <div class="railfoot">
-      <div style="margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:6px"><b style="font-size:12px">v<span id="upd-ver">…</span></b><button class="ghost" id="upd-check" style="padding:2px 8px;font-size:11px">检查更新</button></div>
-        <div id="upd-note" style="margin-top:5px;font-size:11px;color:var(--dim);word-break:break-all">—</div>
-        <button class="act" id="upd-run" style="margin-top:6px;display:none;width:100%;font-size:12px">⬇ 一键更新</button>
-      </div>
-      <div>依附 SnowLuma 运行<br>QQ 连接成功 → 工具就绪<br>大脑 = 自填 key（脱离 DSH）</div>
+      <div class="upd-line"><span class="dot" id="upd-dot"></span><b>v<span id="upd-ver">…</span></b><span id="upd-hint">检查中…</span></div>
+      <button class="act" id="upd-btn" style="margin-top:8px;width:100%;font-size:12px">⟳ 一键更新</button>
     </div>
   </div>
   <main>
@@ -376,7 +376,7 @@ async function poll() {
     $('hero-bars-labels').innerHTML = (s.series || []).map(d => `<span>${d.day.slice(5)}</span>`).join('')
     if (!$('view-home').style.display || $('view-home').style.display === 'block') loadFeed()
     if (!$('view-brain').style.display || $('view-brain').style.display === 'block') { /* 保持输入框不动 */ }
-  } catch (e) { toast('连接工作台失败：' + e.message + ' ｜ ' + String(e.stack || '').split('\n')[1] || '') }
+  } catch (e) { if (!window.__updating) toast('连接工作台失败：' + e.message + ' ｜ ' + String(e.stack || '').split('\n')[1] || '') }
 }
 
 async function loadFeed() {
@@ -522,31 +522,57 @@ async function loadTools() {
     $('tool-list').innerHTML = t.map(x => `<li><code>${x.name}</code> — ${x.description}</li>`).join('')
   } catch { $('tool-list').innerHTML = '<li>读取失败</li>' }
 }
-// ── 左下角更新组件 ──
-async function updateCheck() {
+// ── 左下角更新组件：状态提示 + 可交互一键更新 ──
+let updInfo = {}
+async function updateCheck(silent) {
+  const hint = $('upd-hint'), dot = $('upd-dot'), btn = $('upd-btn')
   try {
     const r = await api('/api/update/check', { method: 'POST' })
+    updInfo = r
     $('upd-ver').textContent = r.version || '?'
-    const note = $('upd-note')
-    note.className = r.ok && r.upToDate ? 'muted' : 'err'
-    note.textContent = r.ok && r.upToDate ? '已是最新（' + (r.head || '').slice(0, 8) + '）' : (r.note || (r.upToDate ? '已是最新' : '检查失败'))
-    if (r.ok && !r.upToDate && r.behind > 0) {
-      note.textContent = '有新版本：落后 ' + r.behind + ' 个提交' + (r.newCommits && r.newCommits.length ? '（' + r.newCommits[0] + '…）' : '')
-      $('upd-run').style.display = 'inline-block'
-    } else $('upd-run').style.display = 'none'
-  } catch (e) { $('upd-note').innerHTML = '<span class="err">' + e.message + '</span>' }
+    btn.classList.remove('upd-btn-pulse')
+    if (r.ok && r.upToDate && r.remote) { dot.className = 'dot ok'; hint.textContent = '已是最新' }
+    else if (r.ok && r.upToDate) { dot.className = 'dot ok'; hint.textContent = '本地版（未配远程，暂不可在线更新）' }
+    else if (r.ok) {
+      dot.className = 'dot warn'
+      hint.textContent = '有新版本（落后 ' + r.behind + ' 个提交）→ 点「一键更新」'
+      btn.classList.add('upd-btn-pulse')
+    } else { dot.className = 'dot bad'; hint.textContent = r.note || '检查失败' }
+    if (!silent) toast(r.ok ? (r.upToDate ? '已是最新 v' + (r.version || '?') : '有新版本，点「一键更新」即可') : (r.note || '检查失败'))
+  } catch (e) { dot.className = 'dot bad'; hint.textContent = '检查失败：' + e.message }
 }
 async function updateRun() {
+  const btn = $('upd-btn'), hint = $('upd-hint')
+  if (btn.disabled) return
+  btn.disabled = true
+  const restore = () => { btn.disabled = false; btn.textContent = '⟳ 一键更新' }
   try {
-    $('upd-run').disabled = true
-    const r = await api('/api/update/run', { method: 'POST' })
-    $('upd-note').innerHTML = r.ok ? '<span class="muted">更新中：拉取 → 自动重启服务。约 20 秒后刷新本页即是新版本。</span>' : '<span class="err">' + (r.reason || '未能开始') + '</span>'
-    if (!r.ok) $('upd-run').disabled = false
-  } catch (e) { $('upd-note').innerHTML = '<span class="err">' + e.message + '</span>' }
+    if (!updInfo.version) await updateCheck(true) // 首次点击先补一次检查
+    if (updInfo.ok && !updInfo.upToDate && updInfo.behind > 0) {
+      btn.textContent = '⬇ 更新中…'
+      hint.textContent = '拉取 → 自动重启服务（约 20 秒）…'
+      window.__updating = true // 重启窗口期静默 poll 的连接失败提示
+      const r = await api('/api/update/run', { method: 'POST' })
+      if (!r.ok) { window.__updating = false; hint.textContent = r.reason || '未能开始更新'; restore(); return }
+      for (let i = 0; i < 30; i++) {
+        await new Promise((res) => setTimeout(res, 2000))
+        try {
+          const st = await api('/api/update/status')
+          if (st.kind === 'done') { $('upd-dot').className = 'dot ok'; hint.textContent = '更新完成：刷新本页即新版本'; btn.textContent = '✓ 已更新'; window.__updating = false; return }
+          if (st.kind === 'error') { $('upd-dot').className = 'dot bad'; hint.textContent = '更新失败：' + (st.error || '详见运行日志'); window.__updating = false; restore(); return }
+        } catch { /* 服务重启中，继续等 */ }
+      }
+      hint.textContent = '更新在后台进行，稍后刷新本页确认。'
+      window.__updating = false
+      restore()
+    } else {
+      await updateCheck(false)
+      restore()
+    }
+  } catch (e) { window.__updating = false; hint.textContent = '更新失败：' + e.message; restore() }
 }
-$('upd-check').onclick = updateCheck
-$('upd-run').onclick = updateRun
-updateCheck()
+$('upd-btn').onclick = updateRun
+updateCheck(true)
 loadBrain(); loadTools(); poll(); setInterval(poll, 6000)
 </script>
 </body>
