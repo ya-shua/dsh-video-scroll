@@ -106,11 +106,9 @@ window.__ModuleLoader__.load({
     [data-bd-clickable]{cursor:pointer;transition:border-color .12s,background .12s;}
     [data-bd-clickable]:hover{border-color:var(--dsw-alias-brand-primary,rgba(76,141,255,.5));
       background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.1));}
-    [data-bd-tabs]{display:flex;gap:4px;padding:4px;border-radius:10px;background:var(--dsw-alias-bg-layer-2,rgba(127,127,127,.08));}
-    [data-bd-tab]{flex:1;min-width:0;cursor:pointer;font:inherit;font-size:13px;padding:7px 10px;border:0;border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary,inherit);}
-    [data-bd-tab]:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.1));}
-    [data-bd-tab][aria-selected=true]{background:var(--dsw-alias-bg-layer-1,#fff);color:var(--dsw-alias-label-primary,inherit);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.12);}
-    [data-bd-away]{display:none !important;}
+    [data-bd-input]{flex:1;min-width:200px;font:inherit;font-size:12.5px;padding:6px 10px;border-radius:8px;border:1px solid var(--dsw-alias-border,rgba(127,127,127,.3));background:var(--dsw-alias-bg-layer-2,rgba(127,127,127,.08));color:inherit;}
+    [data-bd-input]:focus{outline:none;border-color:var(--dsw-alias-brand-primary,rgba(76,141,255,.6));}
+    [data-bd-select]{font:inherit;font-size:12.5px;padding:6px 10px;border-radius:8px;border:1px solid var(--dsw-alias-border,rgba(127,127,127,.3));background:var(--dsw-alias-bg-layer-2,rgba(127,127,127,.08));color:inherit;cursor:pointer;}
     [data-bd-chip]{cursor:pointer;white-space:nowrap;font:inherit;font-size:12px;padding:3px 10px;border-radius:999px;
       border:1px solid var(--dsw-alias-bg-layer-3,rgba(127,127,127,.22));background:transparent;
       color:var(--dsw-alias-label-secondary,inherit);}
@@ -262,7 +260,11 @@ function WatchTab() {
     const [watchedTier, setWatchedTier] = React.useState('')
     const [watchedOffset, setWatchedOffset] = React.useState(0)
     const [watchedTotal, setWatchedTotal] = React.useState(0)
-    const [tab, setTab] = React.useState('daily')   // daily | taste | social | adv
+    /* ⭐ 2026-11-07（用户要求"把综合面板里面的功能拆出来查询排序"）：
+     *    页签（日常/偏好/互动/高级）拆掉，四组功能一页全部平铺（不再藏）；
+     *    「它刷过的视频」加 查询（搜标题/BV/理由）+ 排序（最新/最旧优先）。 */
+    const [watchedQ, setWatchedQ] = React.useState('')
+    const [watchedSort, setWatchedSort] = React.useState('new')
       const [diag, setDiag] = React.useState(null)      // 诊断信息文本
       const [checks, setChecks] = React.useState(null)   // 环境自检结果 [{name, ok, detail, fix}]
       const [loginState, setLoginState] = React.useState('')
@@ -331,10 +333,11 @@ function WatchTab() {
 
       // 「它刷过的视频」：点开才读，读一次就留着（不会每 5 秒重拉）
     const WATCH_PAGE = 30
-    const onLoadWatched = async (st, tr, off) => {
+    const onLoadWatched = async (st, tr, off, kw = watchedQ, sort = watchedSort) => {
       setBusy('watched')
       try {
-        const q = `/watched?limit=${WATCH_PAGE}&offset=${off}` + (st ? '&state=' + st : '') + (tr ? '&tier=' + encodeURIComponent(tr) : '')
+        const q = `/watched?limit=${WATCH_PAGE}&offset=${off}` + (st ? '&state=' + st : '') + (tr ? '&tier=' + encodeURIComponent(tr) : '') +
+          (kw ? '&q=' + encodeURIComponent(kw) : '') + '&sort=' + encodeURIComponent(sort || 'new')
         const r = await jget(q)
         setWatchedRows(r && r.ok ? (r.rows || []) : [])
         setWatchedTotal(r && r.ok ? (Number(r.total) || 0) : 0)
@@ -579,15 +582,11 @@ function WatchTab() {
             'data-warn': runNote.tone === 'warn' ? '' : undefined }, runNote.t) : null,
 
 
-        /* ── 定时 ── */
-        h('div', { 'data-bd-tabs': '' },
-          [['daily', '日常'], ['taste', '偏好'], ['social', '互动'], ['adv', '高级']].map(([v, label]) =>
-            h('button', { key: v, 'data-bd-tab': '', 'aria-selected': tab === v ? 'true' : 'false', onClick: () => setTab(v) }, label))),
-
+        /* ── 2026-11-07：页签已拆（用户要求功能全部平铺），四组顺序保留 ── */
         h('div', { 'data-bd-row': '' },
           h('button', { 'data-bd-btn': '', 'data-primary': '', disabled: Boolean(busy), onClick: onSaveText }, '保存')),
 
-        h('div', { 'data-bd-sec': '', 'data-bd-group': 'daily', 'data-bd-away': tab === 'daily' ? undefined : '' },
+        h('div', { 'data-bd-sec': '', 'data-bd-group': 'daily' },
           h('div', { 'data-bd-h': '' }, '什么时候自己跑'),
           h(ToggleRow, {
             label: '峰谷时段自动刷',
@@ -605,7 +604,7 @@ function WatchTab() {
             }))) : null),
 
         /* ── 一轮挑几条 ── */
-        h('div', { 'data-bd-sec': '', 'data-bd-group': 'daily', 'data-bd-away': tab === 'daily' ? undefined : '' },
+        h('div', { 'data-bd-sec': '', 'data-bd-group': 'daily' },
           h('div', { 'data-bd-h': '' }, '一轮挑几条'),
           h('div', { 'data-bd-row': '' },
             h('div', { 'data-bd-grow': '' },
@@ -620,7 +619,7 @@ function WatchTab() {
           st.lastRunAt ? h('div', { 'data-bd-note': '' }, `上次跑：${new Date(st.lastRunAt).toLocaleString('zh-CN')}`) : null),
 
         /* ── 发言与转写 ── */
-        h('div', { 'data-bd-sec': '', 'data-bd-group': 'social', 'data-bd-away': tab === 'social' ? undefined : '' },
+        h('div', { 'data-bd-sec': '', 'data-bd-group': 'social' },
           h('div', { 'data-bd-h': '' }, '它怎么把结果给你'),
           h('div', { 'data-bd-label': '' }, '投递方式'),
           h('select', {
@@ -724,7 +723,7 @@ function WatchTab() {
               h('pre', { 'data-bd-pre': '' }, st.asrTail)) : null) : null),
 
         /* ── 关注什么 / 在哪儿刷 ── */
-        h('div', { 'data-bd-sec': '', 'data-bd-group': 'taste', 'data-bd-away': tab === 'taste' ? undefined : '' },
+        h('div', { 'data-bd-sec': '', 'data-bd-group': 'taste' },
           h('div', { 'data-bd-h': '' }, '关注什么'),
           h('textarea', {
             'data-bd-input': '', rows: 5, placeholder: '一行一个关键词；留空 = 刷首页推荐流（像人一样随便逛）',
@@ -783,7 +782,7 @@ function WatchTab() {
 
         /* ── 环境与账号 ── */
         /* ── 它刷过的视频 ── */
-        h('div', { 'data-bd-sec': '', 'data-bd-group': 'daily', 'data-bd-away': tab === 'daily' ? undefined : '' },
+        h('div', { 'data-bd-sec': '', 'data-bd-group': 'daily' },
           h('div', { 'data-bd-h': '' }, '它刷过的视频'),
           h('div', { 'data-bd-row': '' },
             h('button', { 'data-bd-btn': '', disabled: busy === 'watched', onClick: () => (watchedRows !== null ? setWatchedRows(null) : onLoadWatched(watchedState, watchedTier, watchedOffset)) },
@@ -796,6 +795,15 @@ function WatchTab() {
               h('button', { key: v || 'all', 'data-bd-chip': '', 'aria-selected': watchedState === v ? 'true' : 'false', onClick: () => onWatchPick('state', v) }, label)),
             ['值得看', '可以看', '不值当'].map((v) =>
               h('button', { key: v, 'data-bd-chip': '', 'aria-selected': watchedTier === v ? 'true' : 'false', onClick: () => onWatchPick('tier', v) }, v))) : null,
+          /* ⭐ 2026-11-07：查询 + 排序（用户要求"拆出来查询排序"） */
+          watchedRows !== null ? h('div', { 'data-bd-row': '' },
+            h('input', { 'data-bd-input': '', value: watchedQ, placeholder: '搜标题 / BV号 / 理由（回车查询）',
+              onChange: (e) => setWatchedQ(e.target.value),
+              onKeyDown: (e) => { if (e.key === 'Enter') onLoadWatched(watchedState, watchedTier, 0, watchedQ, watchedSort) } }),
+            h('select', { 'data-bd-select': '', value: watchedSort,
+              onChange: (e) => { const v = e.target.value; setWatchedSort(v); onLoadWatched(watchedState, watchedTier, 0, watchedQ, v) } },
+              h('option', { value: 'new' }, '最新优先'),
+              h('option', { value: 'old' }, '最旧优先'))) : null,
           watchedRows !== null && watchedRows.length ? h('div', { 'data-bd-list': '' },
             watchedRows.map((x, i) => h('div', { key: x.day + x.bvid, 'data-bd-item': '' },
               // 封面走宿主代理（直连 i0.hdslb.com 会被防盗链挡，也等于把使用者 IP 交出去）
@@ -813,7 +821,7 @@ function WatchTab() {
             h('div', { 'data-bd-note': '' }, `${watchedOffset + 1}–${Math.min(watchedOffset + WATCH_PAGE, watchedTotal)} / ${watchedTotal}`),
             h('button', { 'data-bd-btn': '', disabled: watchedOffset + WATCH_PAGE >= watchedTotal, onClick: () => onWatchPage(WATCH_PAGE) }, '下一页')) : null),
 
-        h('div', { 'data-bd-sec': '', 'data-bd-group': 'adv', 'data-bd-away': tab === 'adv' ? undefined : '' },
+        h('div', { 'data-bd-sec': '', 'data-bd-group': 'adv' },
           h('div', { 'data-bd-row': '' },
             h('button', { 'data-bd-btn': '', disabled: busy === 'diag', onClick: onDiagnose }, '复制诊断信息'),
             h('button', { 'data-bd-btn': '', disabled: busy === 'selfcheck', onClick: onSelfCheck }, '环境自检'),
@@ -850,7 +858,7 @@ function WatchTab() {
             : null,
 
         /* ── 它是怎么干活的（给他看的） ── */
-        h('div', { 'data-bd-sec': '', 'data-bd-group': 'adv', 'data-bd-away': tab === 'adv' ? undefined : '' },
+        h('div', { 'data-bd-sec': '', 'data-bd-group': 'adv' },
           h('div', { 'data-bd-h': '' }, '它的地盘'),
           h('div', { 'data-bd-kv': '' },
             `家目录：${st.home}`,

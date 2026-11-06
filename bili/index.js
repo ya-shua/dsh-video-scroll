@@ -2706,11 +2706,16 @@ function reportMeta() {
         const onlyPicked = url.searchParams.get('picked') === '1'
         const tier = String(url.searchParams.get('tier') || '')
         const state = String(url.searchParams.get('state') || '')   // picked | skipped | commented
+        // ⭐ 2026-11-07（用户要求"拆出来查询排序"）：q = 关键词搜标题/BV/理由；sort = new(默认,按天倒序) | old(按天正序)
+        const q = String(url.searchParams.get('q') || '').trim().toLowerCase()
+        const sort = String(url.searchParams.get('sort') || 'new')
         let rows = onlyPicked ? allRows.filter((x) => x.picked) : allRows
         if (tier) rows = rows.filter((x) => x.tier === tier)
         if (state === 'picked') rows = rows.filter((x) => x.picked)
         if (state === 'skipped') rows = rows.filter((x) => !x.picked)
     if (state === 'commented') rows = rows.filter((x) => x.delivered || x.commented)
+        if (q) rows = rows.filter((x) => ((x.title || '') + ' ' + (x.bvid || '') + ' ' + (x.why || '')).toLowerCase().includes(q))
+        if (sort === 'old') rows = rows.slice().reverse()
         return sendJson(res, 200, { ok: true, total: rows.length, offset, limit, rows: rows.slice(offset, offset + limit) })
       }
       // 封面（宿主代理），浏览器只跟本机说话
