@@ -82,6 +82,16 @@
   .switch input:checked + .knob::after { left:18px; background:#fff; }
   .agentin { width:90px; padding:6px 10px; border:1px solid var(--line); border-radius:8px; background:#101725; color:var(--ink); font:inherit; }
   .agentlab { font-size:11.5px; color:var(--dim); margin-bottom:3px; }
+  /* ⭐ 2026-11-07（新用户视角体检）：原生页输入框原来是浏览器默认白底黑字，与深色主题脱节 —— 统一深色 */
+  #view-bili input:not([type=checkbox]), #view-douyin input:not([type=checkbox]),
+  #view-bili textarea, #view-douyin textarea,
+  #view-bili select, #view-douyin select { background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:6px 10px; font:inherit; }
+  #view-bili input:not([type=checkbox]):focus, #view-douyin input:not([type=checkbox]):focus,
+  #view-bili textarea:focus, #view-douyin textarea:focus,
+  #view-bili select:focus, #view-douyin select:focus { outline:none; border-color:var(--acc); }
+  #view-bili input[type=checkbox], #view-douyin input[type=checkbox] { width:auto; accent-color:var(--acc); transform:scale(1.2); cursor:pointer; }
+  #view-bili button, #view-douyin button { font:inherit; }
+  #view-bili select option, #view-douyin select option { background:var(--card2); color:var(--ink); }
 </style>
 </head>
 <body>
@@ -135,7 +145,7 @@
         <div id="nb-watched" style="display:flex;flex-direction:column;gap:10px;max-height:460px;overflow:auto"><span class="muted">加载中…</span></div>
       </div>
       <div class="card" style="margin-top:14px">
-        <h3>📄 今天的报告 <button class="ghost" id="nb-report-toggle" style="padding:2px 10px;font-size:11px">收起</button></h3>
+        <h3>📄 今天的报告 <button class="ghost" id="nb-report-toggle" style="padding:2px 10px;font-size:11px">收起</button> <button class="ghost" id="nb-open-out" style="padding:2px 10px;font-size:11px">📂 报告文件夹</button> <button class="ghost" id="nb-open-home" style="padding:2px 10px;font-size:11px">📂 家目录</button></h3>
         <div class="logbox" id="nb-report-body">…</div>
       </div>
       <div class="card" style="margin-top:14px">
@@ -167,6 +177,7 @@
               <span style="display:flex;gap:8px;align-items:center;width:100%">每轮最多几条 <input type="number" id="nb-cpr" min="0" max="20" style="width:70px;margin-left:auto"></span>
               <span style="display:flex;gap:8px;align-items:center;width:100%">@你的昵称 <input id="nb-mention" style="width:140px;margin-left:auto"></span>
               <span style="display:flex;gap:8px;align-items:center;width:100%">有人回复就回 <input type="checkbox" id="nb-replyback" style="width:auto;margin-left:auto"></span>
+              <span style="width:100%"><button class="ghost" id="nb-verify" style="width:100%;font-size:12px">🔍 复核评论 —— 去 B站核一遍真的发出来了</button></span>
             </div>
           </div>
           <div class="card" style="background:var(--card2)">
@@ -219,7 +230,8 @@
               <span style="display:flex;gap:8px;align-items:center;width:100%">详细程度
                 <select id="dy-rl" style="margin-left:auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font:inherit">
                   <option value="full">满版（每条一两行）</option>
-                  <option value="short">简版</option>
+                  <option value="brief">简版（只记挑了哪些）</option>
+                  <option value="off">关（只跑不写）</option>
                 </select></span>
             </div>
           </div>
@@ -659,7 +671,19 @@ async function nbPoll() {
   nbPollT = setTimeout(nbPoll, 3000)
 }
 
-$('nb-run').onclick = async (e) => { e.target.disabled = true; try { const r = await api('/api/run', { method: 'POST', body: JSON.stringify({ kind: 'bili' }) }); toast(r.ok ? 'B站值班轮已在后台开始' : (r.reason || '未启动')); loadBili() } catch (err) { toast(err.message) } e.target.disabled = false }
+$('nb-run').onclick = async (e) => {
+  e.target.disabled = true
+  try {
+    // ⭐ 2026-11-07（新用户视角体检）：未登录/上一轮在跑时拦住，别白白烧一轮
+    const s = await biliApi('/status')
+    if (!s.loggedIn) { toast('B站还没登录 —— 先点 🔑 扫码登录'); return }
+    if (s.running) { toast('上一轮还在跑 —— 等它跑完再开新的'); return }
+    const r = await api('/api/run', { method: 'POST', body: JSON.stringify({ kind: 'bili' }) })
+    toast(r.ok ? 'B站值班轮已在后台开始（进度看「运行日志」）' : (r.reason || '未启动'))
+    loadBili()
+  } catch (err) { toast(err.message) }
+  e.target.disabled = false
+}
 $('nb-report').onclick = () => showReport('bili')
 $('nb-login').onclick = nbLoginStart
 $('nb-login-again').onclick = nbLoginStart
@@ -668,6 +692,8 @@ $('nb-wq').addEventListener('keydown', (e) => { if (e.key === 'Enter') { nbWOff 
 $('nb-wsort').onchange = () => { nbWOff = 0; loadNbWatched() }
 $('nb-report-toggle').onclick = () => { nbReportOpen = !nbReportOpen; $('nb-report-body').style.display = nbReportOpen ? 'block' : 'none'; $('nb-report-toggle').textContent = nbReportOpen ? '收起' : '展开'; if (nbReportOpen) loadNbReport() }
 $('nb-save').onclick = async () => {
+  const btn = $('nb-save')
+  btn.disabled = true; btn.textContent = '保存中…'
   const patch = {
     perDay: Number($('nb-perday').value) || 0,
     peakValley: $('nb-peak').checked,
@@ -680,10 +706,47 @@ $('nb-save').onclick = async () => {
     keywords: $('nb-kws').value.split('\n').map((s) => s.trim()).filter(Boolean),
   }
   try { const r = await biliApi('/config', { method: 'POST', body: JSON.stringify(patch) }); if (r.config) nbCfg = r.config; $('nb-msg').textContent = '已保存 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }); toast('B站设置已保存') } catch (e) { $('nb-msg').textContent = '保存失败：' + e.message; toast('B站设置保存失败：' + e.message) }
+  btn.disabled = false; btn.textContent = '💾 保存设置'
 }
 
 // ═══ 刷抖音 原生页（2026-11-07 新建）═══
 let dyCfg = null, dyReportOpen = true
+
+// ⭐ 2026-11-07（新用户视角体检）补充的小件：文件夹直开 + 复核评论
+$('nb-open-out').onclick = async () => { try { await biliApi('/open', { method: 'POST', body: JSON.stringify({ what: 'out' }) }); toast('已在资源管理器打开报告文件夹') } catch (e) { toast(e.message) } }
+$('nb-open-home').onclick = async () => { try { await biliApi('/open', { method: 'POST', body: JSON.stringify({ what: 'home' }) }); toast('已在资源管理器打开家目录') } catch (e) { toast(e.message) } }
+$('nb-verify').onclick = async (e) => {
+  e.target.disabled = true; e.target.textContent = '复核中…'
+  try { await biliApi('/verify', { method: 'POST', body: '{}' }); toast('复核完成 —— 结果写进「运行日志」') } catch (err) { toast(err.message) }
+  e.target.disabled = false; e.target.textContent = '🔍 复核评论 —— 去 B站核一遍真的发出来了'
+}
+
+// ⭐ 页面常开时徽章 60s 自动刷新（只刷徽章，不碰正在编辑的设置）
+const nbBadgesHtml = (s) => {
+  const picked = s.autoPicked ?? s.pickedToday ?? 0
+  return [
+    nbBadge(`自动已挑 ${picked}/${s.perDay ?? nbCfg?.perDay ?? '?'}`, picked < (s.perDay ?? nbCfg?.perDay ?? 0)),
+    nbBadge(s.venvReady ? '环境 ✓' : (s.installing ? '环境装中' : '环境未装'), s.venvReady),
+    nbBadge(s.loggedIn ? 'B站已登录' : '未登录（点 🔑 扫码）', s.loggedIn),
+    s.running ? nbBadge('跑着…', false) : '',
+  ].join('')
+}
+const dyBadgesHtml = (s, accHtml) => [
+  nbBadge(`今日 ${s.ranToday ?? 0}/${s.perDay ?? '?'} 轮`, (s.ranToday ?? 0) < (s.perDay || 1)),
+  nbBadge(`挑了 ${s.pickedToday ?? 0} 条`, true),
+  (!s.canRun) ? nbBadge('跑着…', false) : '',
+  accHtml,
+].join('')
+setInterval(async () => {
+  try {
+    if ($('view-bili').style.display === 'block') $('nb-badges').innerHTML = nbBadgesHtml(await biliApi('/status'))
+    if ($('view-douyin').style.display === 'block') {
+      let accHtml = ''
+      try { const a = await api('/api/douyin-duty/account'); accHtml = (a.logged_in && a.account && (a.account.nick || a.account.uid)) ? nbBadge('账号 ' + (a.account.nick || a.account.uid), true) : nbBadge('未登录', false) } catch { accHtml = '' }
+      $('dy-badges').innerHTML = dyBadgesHtml(await api('/api/douyin-duty/status'), accHtml)
+    }
+  } catch { /* 后台刷新失败不吵人 */ }
+}, 60000)
 
 async function loadDouyin() {
   try {
@@ -715,11 +778,23 @@ async function loadDyReport() {
   try { const r = await api('/api/report?kind=douyin'); $('dy-report-body').textContent = r.file ? '【' + r.file + '】\n\n' + (r.content || '') : '今天还没有报告 —— 跑一轮之后就有了' } catch (e) { $('dy-report-body').textContent = '读取失败：' + e.message }
 }
 
-$('dy-run').onclick = async (e) => { e.target.disabled = true; try { const r = await api('/api/run', { method: 'POST', body: JSON.stringify({ kind: 'douyin' }) }); toast(r.ok ? '抖音值班轮已在后台开始' : (r.reason || '未启动')); loadDouyin() } catch (err) { toast(err.message) } e.target.disabled = false }
+$('dy-run').onclick = async (e) => {
+  e.target.disabled = true
+  try {
+    const s = await api('/api/douyin-duty/status')
+    if (s.canRun === false) { toast('上一轮还没跑完 —— 等它跑完再开新的'); return }
+    const r = await api('/api/run', { method: 'POST', body: JSON.stringify({ kind: 'douyin' }) })
+    toast(r.ok ? '抖音值班轮已在后台开始（进度看「运行日志」）' : (r.reason || '未启动'))
+    loadDouyin()
+  } catch (err) { toast(err.message) }
+  e.target.disabled = false
+}
 $('dy-report').onclick = () => showReport('douyin')
 $('dy-refresh').onclick = loadDouyin
 $('dy-report-toggle').onclick = () => { dyReportOpen = !dyReportOpen; $('dy-report-body').style.display = dyReportOpen ? 'block' : 'none'; $('dy-report-toggle').textContent = dyReportOpen ? '收起' : '展开'; if (dyReportOpen) loadDyReport() }
 $('dy-save').onclick = async () => {
+  const btn = $('dy-save')
+  btn.disabled = true; btn.textContent = '保存中…'
   const patch = {
     perDay: Number($('dy-perday').value) || 0,
     peakValley: $('dy-peak').checked,
@@ -732,6 +807,7 @@ $('dy-save').onclick = async () => {
     reportLevel: $('dy-rl').value,
   }
   try { const r = await api('/api/douyin-duty/config', { method: 'POST', body: JSON.stringify(patch) }); if (r.config) dyCfg = r.config; $('dy-msg').textContent = '已保存 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }); toast('抖音设置已保存') } catch (e) { $('dy-msg').textContent = '保存失败：' + e.message; toast('抖音设置保存失败：' + e.message) }
+  btn.disabled = false; btn.textContent = '💾 保存设置'
 }
 
 // ── 左下角更新组件：状态提示 + 可交互一键更新 ──
