@@ -1,7 +1,7 @@
 /**
  * web/server.mjs —— snow-video-kit 工作台（独立网址，全新设计）
- * 只听 127.0.0.1:8412；令牌登录（state/console-token，桌面快捷方式带 ?token= 自动登录）。
- * /api/* 都要会话；/api/login 除外。
+ * 只听 127.0.0.1:8412；2026-11-07 起无登录（用户要求删掉登录密码）——本机直接访问，
+ * 登录页/会话校验已移除；?token= 入口保留只为种 cookie（兼容老链接），MCP /mcp 仍走令牌。
  */
 import http from 'node:http'
 import fs from 'node:fs'
@@ -35,10 +35,8 @@ function ensureToken() {
 let TOKEN = ensureToken()
 
 // 会话 = 工作台令牌本身（cookie/头/查询任一携带即可）——重启不失效，页面不会因服务重启而全灭
-const cookieOf = (req) => String(req.headers.cookie || '').match(/vsk_sess=([^;]+)/)?.[1] || ''
-const authedByCookie = (req) => cookieOf(req) === TOKEN
-const authed = (req) => authedByCookie(req) || (req.headers['x-console-token'] || url0Token(req)) === TOKEN
-function url0Token(req) { try { return new URL(req.url, 'http://127.0.0.1').searchParams.get('token') || '' } catch { return '' } }
+// 2026-11-07：登录密码已删（用户要求）——服务只听 127.0.0.1，本机直接访问，不再有登录页/会话门槛。
+// cookie/令牌仍被 ?token= 入口正常种下（兼容海螺控制台直链与 x-console-token 头的老用法）。
 const maskKey = (k) => (k ? k.slice(0, 6) + '…' + k.slice(-4) + `（${k.length}位）` : '')
 
 function json(res, code, data) { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(data)) }
@@ -158,32 +156,10 @@ export function startWeb() {
         if (body.method === 'ping') return json(res, 200, { jsonrpc: '2.0', id: body.id ?? null, result: {} })
         return json(res, 200, { jsonrpc: '2.0', id: body.id ?? null, error: { code: -32601, message: 'method not found: ' + body.method } })
       }
-      // 登录
-      if (url.pathname === '/api/login' && req.method === 'POST') {
-        let body = ''; req.on('data', (c) => (body += c)); req.on('end', () => {
-          let token = ''
-          try { token = JSON.parse(body).token || '' } catch { /* 忽略 */ }
-          const q = url.searchParams.get('token'); if (q) token = q
-          if (token !== TOKEN) return json(res, 403, { error: '令牌不对' })
-
-          res.setHeader('set-cookie', `vsk_sess=${TOKEN}; Path=/; SameSite=Strict; Max-Age=31536000`)
-          json(res, 200, { ok: true })
-        })
-        return
-      }
-      // ?token= 自动登录（桌面快捷方式用）
-      if (url.pathname === '/' && url.searchParams.get('token') === TOKEN) {
-
+      // ?token= 兼容入口（海螺控制台链接带令牌）：种个 cookie 即放行；2026-11-07 起登录密码已删，
+      // 服务只听 127.0.0.1，本机访问一律直接进（不再有登录页/令牌校验门槛）。
+      if (url.searchParams.get('token')) {
         res.setHeader('set-cookie', `vsk_sess=${TOKEN}; Path=/; SameSite=Strict; Max-Age=31536000`)
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'cache-control': 'no-store' })
-        return res.end(readFileSync(UI))
-      }
-      if (!authed(req)) {
-        if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
-          res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
-          return res.end(loginHtml())
-        }
-        return json(res, 403, { error: '未登录' })
       }
       // 页面
       if (req.method === 'GET' && url.pathname === '/') {
@@ -324,14 +300,4 @@ function readBody(req) {
     let d = ''; req.on('data', (c) => (d += c)); req.on('end', () => { try { resolve(JSON.parse(d || '{}')) } catch { resolve({}) } })
   })
 }
-function loginHtml() {
-  return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>刷视频工作台 · 登录</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(900px 420px at 50% -80px,#1c2740 0%,#0f1420 62%);font:14px/1.6 "Segoe UI","Microsoft YaHei",sans-serif;color:#dbe4f5}
-.card{background:#151c2b;border:1px solid #26304a;border-radius:14px;padding:28px 30px;width:340px;box-shadow:0 10px 34px rgba(0,0,0,.4)}
-h1{font-size:17px;margin:0 0 6px}p{color:#8494b3;font-size:12.5px;margin:0 0 16px}
-input{width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #26304a;border-radius:9px;font:inherit;margin-bottom:12px;background:#101725;color:#dbe4f5}
-button{width:100%;padding:10px;border:0;border-radius:9px;background:#4f7cff;color:#fff;font:inherit;cursor:pointer}</style></head>
-<body><div class="card"><h1>🎬 刷视频工作台</h1><p>输入访问令牌（state/console-token，桌面快捷方式已自带）</p>
-<form onsubmit="fetch('/api/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token:this.t.value})}).then(r=>r.json()).then(j=>{if(j.ok)location='/';else alert(j.error)});return false">
-<input name="t" placeholder="访问令牌" autofocus><button>进入</button></form></div></body></html>`
-}
+
