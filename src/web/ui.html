@@ -374,8 +374,7 @@ async function poll() {
     $('hero-bars-labels').innerHTML = (s.series || []).map(d => `<span>${d.day.slice(5)}</span>`).join('')
     if (!$('view-home').style.display || $('view-home').style.display === 'block') loadFeed()
     if (!$('view-brain').style.display || $('view-brain').style.display === 'block') { /* 保持输入框不动 */ }
-  } catch (e) { toast('连接工作台失败：' + e.message + ' ｜ ' + String(e.stack || '').split('
-')[1] || '') }
+  } catch (e) { toast('连接工作台失败：' + e.message + ' ｜ ' + String(e.stack || '').split('\n')[1] || '') }
 }
 
 async function loadFeed() {
