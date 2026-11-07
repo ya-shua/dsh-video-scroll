@@ -6,7 +6,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { chat, chatWithTools } from './brain.mjs'
 import { kitLog, todayKey } from './config.js'
 import * as videomem from './videomem.mjs'
@@ -137,6 +137,24 @@ export async function runRound(cfg, resolve, { reason = 'manual' } = {}) {
   const ids = (report.match(/\d{15,25}/g) || [])
   const seenFile = path.join(home, 'seen.md')
   if (ids.length) fs.appendFileSync(seenFile, ids.map((id) => `- ${id}  ${todayKey()}  (kit)`).join('\n') + '\n', 'utf8')
+
+  // ⭐ 2026-11-07（用户要求、默认关）：互动开关——对挑中的视频点赞 / 收藏（真实页面点击，后台派发）
+  if (cfg.douyin.interactLike || cfg.douyin.interactFav) {
+    const node = path.join(cfg.snow?.homeDir || '', 'node.exe')
+    const tool = path.join(resolve.toolsDir, 'video-interact.mjs')
+    const interactLog = path.join(home, 'interact.log')
+    if (fs.existsSync(node) && fs.existsSync(tool) && ids.length) {
+      for (const id of ids) {
+        try {
+          fs.appendFileSync(interactLog, `\n[${todayKey()} ${new Date().toTimeString().slice(0, 8)}] interact ${id} like=${cfg.douyin.interactLike ? 1 : 0} fav=${cfg.douyin.interactFav ? 1 : 0}\n`)
+          const lh = fs.openSync(interactLog, 'a')
+          const p = spawn(WATCH_NODE, [tool, '--aweme', id, '--like', cfg.douyin.interactLike ? '1' : '0', '--fav', cfg.douyin.interactFav ? '1' : '0'], { cwd: home, env: { ...process.env, DOUYIN_HOME: home, PYTHONUTF8: '1' }, detached: true, stdio: ['ignore', lh, lh], windowsHide: true })
+          p.unref(); fs.closeSync(lh)
+        } catch (e) { kitLog('互动派发失败：' + String(e?.message || e)) }
+      }
+      kitLog(`互动已派发：${ids.length} 条（点赞 ${cfg.douyin.interactLike ? '开' : '关'} / 收藏 ${cfg.douyin.interactFav ? '开' : '关'}）→ ${interactLog}`)
+    }
+  }
 
   const after = douyinStatus(cfg, resolve)
   try {

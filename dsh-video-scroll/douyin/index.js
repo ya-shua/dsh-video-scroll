@@ -178,6 +178,9 @@ export const Config = !z ? undefined : z.object({
   commentExecutor: z.string().default('off').extra('volatile', true),
   commentPerRun: z.natural().default(1).extra('volatile', true),
   commentPerDay: z.natural().default(0).extra('volatile', true),
+  /** ⭐ 2026-11-07：互动开关（全部默认关，得使用者在设置里明确开启）——值班轮看完后对挑中的视频执行 */
+  interactLike: z.boolean().default(false).extra('volatile', true),
+  interactFav: z.boolean().default(false).extra('volatile', true),
   /** 要 @ 谁（抖音昵称）；留空 = 不发评论 */
   mentionName: z.string().default('').extra('volatile', true),
   /** http 执行器的地址 */
@@ -365,6 +368,7 @@ export function apply(ctx, config) {
     keywords: [], channels: [], authors: [],
     minDescLen: 12, minComments: 3,
     autoComment: false, autoSend: true, commentAtMe: false, atPeers: [], commentSelfName: '',
+    interactLike: false, interactFav: false,
     commentExecutor: 'off', commentPerRun: 1, commentPerDay: 0,
     mentionName: '', httpCommentUrl: '',
     notifyMode: 'toast', webhookUrl: '', webhookPreset: 'custom',

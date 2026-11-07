@@ -181,6 +181,15 @@
             </div>
           </div>
           <div class="card" style="background:var(--card2)">
+            <h3>❤️ 互动（默认关，开了才生效）</h3>
+            <div class="kv" style="margin-top:8px">
+              <span style="display:flex;gap:8px;align-items:center;width:100%">看完点赞（挑进日报的视频各赞一次） <input type="checkbox" id="nb-autolike" style="width:auto;margin-left:auto"></span>
+              <span style="display:flex;gap:8px;align-items:center;width:100%">自动收藏挑中的视频到
+                <select id="nb-favfav" style="margin-left:auto;max-width:170px"><option value="0">选收藏夹…</option></select></span>
+              <span class="muted" style="font-size:12px;width:100%">每轮结束自动把挑中的收进所选收藏夹（原生能力，选了夹子就算开启）</span>
+            </div>
+          </div>
+          <div class="card" style="background:var(--card2)">
             <h3>🔎 关注什么（一行一个关键词）</h3>
             <textarea id="nb-kws" rows="4" style="width:100%;margin-top:8px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit"></textarea>
           </div>
@@ -235,6 +244,13 @@
               <span style="width:100%">@ 名单（从会话里挑，点选即可）</span>
               <span id="dy-atpeers" style="display:flex;flex-direction:column;gap:6px;width:100%"></span>
               <span><button class="ghost" id="dy-pick-at" style="font-size:12px;padding:3px 10px">👥 从会话里挑 @ 对象</button></span>
+            </div>
+          </div>
+          <div class="card" style="background:var(--card2)">
+            <h3>❤️ 互动（默认关，开了才生效）</h3>
+            <div class="kv" style="margin-top:8px">
+              <span style="display:flex;gap:8px;align-items:center;width:100%">看完点赞（挑进日报的视频各赞一次） <input type="checkbox" id="dy-interact-like" style="width:auto;margin-left:auto"></span>
+              <span style="display:flex;gap:8px;align-items:center;width:100%">看完收藏（挑进日报的视频收进夹子） <input type="checkbox" id="dy-interact-fav" style="width:auto;margin-left:auto"></span>
             </div>
           </div>
           <div class="card" style="background:var(--card2)">
@@ -636,7 +652,10 @@ async function loadBili() {
     if (document.activeElement !== $('nb-mention')) $('nb-mention').value = nbCfg.mentionName || ''
     $('nb-replyback').checked = !!nbCfg.replyToComments
     if (document.activeElement !== $('nb-kws')) $('nb-kws').value = (nbCfg.keywords || []).join('\n')
+    $('nb-autolike').checked = !!nbCfg.autoLike
+    if (document.activeElement !== $('nb-favfav')) $('nb-favfav').value = String(nbCfg.favFolderId ?? 0)
     nbChips(); loadNbWatched()
+    loadNbFavFolders()
     if (nbReportOpen) loadNbReport()
   } catch (e) { toast('B站状态读取失败：' + e.message) }
 }
@@ -734,9 +753,29 @@ $('nb-save').onclick = async () => {
     mentionName: $('nb-mention').value.trim(),
     replyToComments: $('nb-replyback').checked,
     keywords: $('nb-kws').value.split('\n').map((s) => s.trim()).filter(Boolean),
+    autoLike: $('nb-autolike').checked,
+    favFolderId: Number($('nb-favfav').value) || 0,
   }
   try { const r = await biliApi('/config', { method: 'POST', body: JSON.stringify(patch) }); if (r.config) nbCfg = r.config; $('nb-msg').textContent = '已保存 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }); toast('B站设置已保存') } catch (e) { $('nb-msg').textContent = '保存失败：' + e.message; toast('B站设置保存失败：' + e.message) }
   btn.disabled = false; btn.textContent = '💾 保存设置'
+}
+
+// 收藏夹下拉（一次加载；失败就只留「选收藏夹…」）
+let nbFavLoaded = false
+async function loadNbFavFolders() {
+  if (nbFavLoaded) return
+  nbFavLoaded = true
+  try {
+    const r = await biliApi('/fav-folders')
+    const sel = $('nb-favfav')
+    const cur = String(nbCfg?.favFolderId ?? sel.value ?? '0')
+    for (const f of r.folders || []) {
+      const o = document.createElement('option')
+      o.value = String(f.id); o.textContent = `${f.title}（${f.count}）`
+      sel.appendChild(o)
+    }
+    sel.value = cur
+  } catch { /* 拉不到就保持原样 */ }
 }
 
 // ═══ 刷抖音 原生页（2026-11-07 新建）═══
@@ -801,6 +840,8 @@ async function loadDouyin() {
     if (document.activeElement !== $('dy-dmtoid')) $('dy-dmtoid').value = c.dmToId || ''
     $('dy-atme').checked = !!c.commentAtMe
     $('dy-cpr').value = c.commentPerRun ?? 1
+    $('dy-interact-like').checked = !!c.interactLike
+    $('dy-interact-fav').checked = !!c.interactFav
     $('dy-chatwatch').checked = !!c.chatWatch
     $('dy-cwsec').value = c.chatWatchSec ?? 30
     $('dy-cwtarget').value = ['lead', 'duty'].includes(c.chatWatchTarget) ? c.chatWatchTarget : 'lead'
@@ -941,6 +982,8 @@ $('dy-save').onclick = async () => {
     autoComment: $('dy-autocomment').checked,
     commentPerRun: Number($('dy-cpr').value) || 0,
     commentAtMe: $('dy-atme').checked,
+    interactLike: $('dy-interact-like').checked,
+    interactFav: $('dy-interact-fav').checked,
     chatWatch: $('dy-chatwatch').checked,
     chatWatchSec: Math.max(10, Math.min(Number($('dy-cwsec').value) || 30, 300)),
     chatWatchTarget: ['lead', 'duty'].includes($('dy-cwtarget').value) ? $('dy-cwtarget').value : 'lead',

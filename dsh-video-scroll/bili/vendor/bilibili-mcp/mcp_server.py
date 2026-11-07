@@ -211,6 +211,13 @@ def load_credential() -> Credential:
 _login_session: QrCodeLogin | None = None
 
 
+def auto_like_gate() -> dict:
+    """⭐ 2026-11-07 合并包新增：bili_like 的门禁。
+    插件 spawn 本进程时带 BILI_AUTO_LIKE 环境变量（设置里「看完点赞」开了 = 1）。
+    读不到 = 没开 = 拒绝。默认关，得由使用者在设置里明确开启。"""
+    return {"allowed": str(os.environ.get("BILI_AUTO_LIKE", "")).strip() == "1"}
+
+
 def get_cred() -> Credential:
     """获取凭证，未登录时引导用户调用 bili_login"""
     cred = load_credential()
@@ -602,6 +609,35 @@ async def bili_danmaku(bvid: str, num: int = 100) -> str:
         })
 
     return json.dumps({"bvid": bvid, "count": len(result), "danmakus": result}, ensure_ascii=False)
+
+
+# ========== Tool 4.5: 点赞视频（⭐ 2026-11-07 合并包新增；设置 autoLike 开启才允许用） ==========
+
+@tool()
+async def bili_like(bvid: str, status: bool = True) -> str:
+    """
+    给B站视频点赞 / 取消赞。只允许对「这一轮挑进日报的视频」使用；
+    设置里没开「看完点赞」时会拒绝执行。
+
+    Args:
+        bvid: 视频BV号，如"BV1uNk1YxEJQ"
+        status: True=点赞，False=取消赞
+
+    Returns:
+        JSON 结果 {"ok":true,"bvid":...,"liked":...}；未开启时 {"ok":false,"error":"未开启"}
+    """
+    await _throttle()
+    try:
+        gate = await auto_like_gate()
+        if not gate.get("allowed"):
+            return json.dumps({"ok": False, "error": "未开启（设置里「看完点赞」没打开）"}, ensure_ascii=False)
+        cred = get_cred()
+        v = video.Video(bvid=bvid, credential=cred)
+        res = await v.like(status=status)
+        ok = bool(res and res.get("code") == 0)
+        return json.dumps({"ok": ok, "bvid": bvid, "liked": status, "raw": str(res)[:200]}, ensure_ascii=False)
+    except Exception as exc:
+        return json.dumps({"ok": False, "error": str(exc)[:200]}, ensure_ascii=False)
 
 
 # ========== Tool 5: 视频详情 ==========
