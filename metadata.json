@@ -1,0 +1,24 @@
+{
+  "id": "video",
+  "name": "娱乐",
+  "name_en": "Snow Video Kit",
+  "version": "0.7.1",
+  "author": "ya-shua",
+  "description": "B站/抖音值班刷视频：挑片、写报告、拥 6 个 MCP 工具让她自己刷。",
+  "builtin": false,
+  "kind": "app",
+  "page": "http://127.0.0.1:8412/",
+  "port": 8412,
+  "launch": {
+    "runtime": "node",
+    "entry": "src/index.js",
+    "cwd": "snow-video-kit",
+    "port": 8412,
+    "url": "http://127.0.0.1:8412/",
+    "url_token_file": "state/console-token",
+    "note": "B站/抖音值班刷视频，MCP 6 个工具。"
+  },
+  "source": {
+    "repo": ""
+  }
+}

@@ -26,8 +26,9 @@ const cfg = loadConfig()
 /** 环形的心 mcp/server.mjs 的位置（config.json → ring.mcpServer 可覆盖） */
 function ringServerPath() {
   if (cfg.ring?.mcpServer) return cfg.ring.mcpServer
-  // kit 在 桌面\插件\snow-video-kit，环形的心 在 桌面\插件\环形的心 —— 只上跳一级
-  return path.dirname(KIT_DIR) + path.sep + '环形的心' + path.sep + 'mcp' + path.sep + 'server.mjs'
+  // kit 在 桌面\插件\刷视频插件\snow-video-kit，环形的心 在 桌面\插件\环形的心 —— 上跳两级
+  // （2026-11-08 修正：原来只上跳一级，指到一个不存在的路径，ring_* 一直起不来）
+  return path.join(path.dirname(path.dirname(KIT_DIR)), '环形的心', 'mcp', 'server.mjs')
 }
 
 let ring = null

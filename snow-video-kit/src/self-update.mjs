@@ -13,7 +13,11 @@ import http from 'node:http'
 import { KIT_DIR, kitLog } from './config.js'
 import { scrubSecret } from './updater.mjs'
 
-const GITBIN = fs.existsSync('C:/Git/cmd/git.exe') ? 'C:/Git/cmd/git.exe' : 'git'
+// 实际 git 路径按候选探测（本机在 D:/Git），都找不到才退回 PATH
+const GITBIN = ['C:/Git/cmd/git.exe', 'C:/Program Files/Git/cmd/git.exe', 'D:/Git/cmd/git.exe'].find((p) => fs.existsSync(p)) || 'git'
+// 强制 UTF-8 输出，避免更新日志里的中文错误信息乱码
+const GIT_ENV = { ...process.env, LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' }
+const GIT_UTF8 = ['-c', 'core.quotepath=false', '-c', 'i18n.logOutputEncoding=utf8']
 
 const UPD = path.join(KIT_DIR, 'state', 'update.json')
 const say = (msg) => {
@@ -100,8 +104,8 @@ say('开始拉取更新（git fetch + merge --ff-only）…')
 try {
   const { fetchTarget } = await import('./updater.mjs')
   const { url, tok } = fetchTarget()
-  const out = execFileSync(GITBIN, ['fetch', url || 'origin', 'main'], { cwd: KIT_DIR, timeout: 120000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
-  execFileSync(GITBIN, ['merge', '--ff-only', 'FETCH_HEAD'], { cwd: KIT_DIR, timeout: 60000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  const out = execFileSync(GITBIN, [...GIT_UTF8, 'fetch', url || 'origin', 'main'], { cwd: KIT_DIR, timeout: 120000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: GIT_ENV })
+  execFileSync(GITBIN, [...GIT_UTF8, 'merge', '--ff-only', 'FETCH_HEAD'], { cwd: KIT_DIR, timeout: 60000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: GIT_ENV })
   say('fetch + merge 完成')
 } catch (e) {
   const reason = scrubSecret(String((e.stdout || '') + (e.stderr || '')).trim().slice(0, 300))

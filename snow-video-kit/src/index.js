@@ -35,8 +35,9 @@ function inWindow(cfg) {
 }
 setInterval(() => {
   try {
-    // 「她想刷就刷」开着 = 无时间限制：峰谷窗口不拦，只受每日轮数/花费限额约束
-    if (!inWindow(cfg) && !cfg.agent?.freeRun) return
+    // 自动派发只认值班计划窗口（schedule.enabled + 窗口内）；freeRun 只负责她主动发起时
+    // 不受窗口限制，不在这里触发自动轮——否则会变成每 10 分钟系统自己刷
+    if (!inWindow(cfg)) return
     if (!brainConfigured(cfg)) return
     for (const kind of ['bili', 'douyin']) {
       if (roundRunning(kind)) continue

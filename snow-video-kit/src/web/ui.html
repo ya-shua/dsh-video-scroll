@@ -19,12 +19,14 @@
   nav button { text-align:left; background:transparent; border:0; padding:9px 12px; border-radius:9px; font:inherit; color:var(--ink); cursor:pointer; }
   nav button.on { background:var(--acc); color:#fff; }
   nav button:not(.on):hover { background:#1c2438; }
+  .navgroup { font-size:10.5px; color:var(--dim); letter-spacing:1.5px; padding:15px 12px 3px; user-select:none; }
+  .navgroup:first-child { padding-top:2px; }
   .railfoot { margin-top:auto; color:var(--dim); font-size:11px; line-height:1.7; padding-top:22px; }
   .railfoot .upd-line { display:flex; align-items:center; gap:6px; }
   .railfoot .upd-hint { flex:1; min-width:0; }
   .railfoot .upd-btn-pulse { animation:updpulse 1.8s ease-in-out infinite; }
   @keyframes updpulse { 0%,100% { opacity:1 } 50% { opacity:.55 } }
-  main { padding:26px 30px 60px; }
+  main { padding:26px 30px 60px; width:100%; min-width:0; max-width:1180px; margin:0 auto; box-sizing:border-box; }
   h2 { font-size:16px; margin:0 0 14px; }
   .grid { display:grid; gap:14px; }
   .cols2 { grid-template-columns:1fr 1fr; }
@@ -83,15 +85,52 @@
   .agentin { width:90px; padding:6px 10px; border:1px solid var(--line); border-radius:8px; background:#101725; color:var(--ink); font:inherit; }
   .agentlab { font-size:11.5px; color:var(--dim); margin-bottom:3px; }
   /* ⭐ 2026-11-07（新用户视角体检）：原生页输入框原来是浏览器默认白底黑字，与深色主题脱节 —— 统一深色 */
-  #view-bili input:not([type=checkbox]), #view-douyin input:not([type=checkbox]),
-  #view-bili textarea, #view-douyin textarea,
-  #view-bili select, #view-douyin select { background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:6px 10px; font:inherit; }
-  #view-bili input:not([type=checkbox]):focus, #view-douyin input:not([type=checkbox]):focus,
-  #view-bili textarea:focus, #view-douyin textarea:focus,
-  #view-bili select:focus, #view-douyin select:focus { outline:none; border-color:var(--acc); }
-  #view-bili input[type=checkbox], #view-douyin input[type=checkbox] { width:auto; accent-color:var(--acc); transform:scale(1.2); cursor:pointer; }
-  #view-bili button, #view-douyin button { font:inherit; }
-  #view-bili select option, #view-douyin select option { background:var(--card2); color:var(--ink); }
+  input:not([type=checkbox]):not([type=radio]):not(.wide):not(.agentin),
+  textarea:not(.wide), select:not(.wide) { background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:6px 10px; font:inherit; }
+  input:not([type=checkbox]):not([type=radio]):not(.wide):not(.agentin):focus,
+  textarea:not(.wide):focus, select:not(.wide):focus { outline:none; border-color:var(--acc); }
+  input[type=checkbox], input[type=radio] { width:auto; accent-color:var(--acc); transform:scale(1.2); cursor:pointer; }
+  select option { background:var(--card2); color:var(--ink); }
+  /* 浏览器自动填充（autofill）默认会套浅蓝白背景，在深色页里刺眼 —— 强制深色 */
+  input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, input:-webkit-autofill:active {
+    -webkit-text-fill-color:var(--ink); caret-color:var(--ink);
+    -webkit-box-shadow:0 0 0 1000px #101725 inset;
+    transition:background-color 9999s ease-in-out 0s;
+  }
+  /* ── 设置区：规整表单行（替代卡片套卡片）── */
+  .formgrid { display:grid; grid-template-columns:170px 1fr; gap:14px 18px; align-items:center; }
+  .formgrid > label { color:var(--dim); font-size:13px; }
+  .formgrid .full { grid-column:1 / -1; }
+  .formgrid .ctrl { display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-width:0; }
+  .formgrid .ctrl input, .formgrid .ctrl select { width:auto; }
+  .formgrid .sub { color:var(--dim); font-size:11.5px; }
+  .formgrid textarea { width:100%; }
+  .setbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:20px; padding-top:16px; border-top:1px solid var(--line); }
+  /* ── 设置分组（舒展平铺，替代可点击的折叠子标签）── */
+  .setgroup { margin-top:24px; }
+  .setgroup:first-of-type { margin-top:6px; }
+  .setgroup > .gtitle { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--ink); margin-bottom:14px; padding-left:10px; border-left:3px solid var(--acc); }
+  /* ── 窄屏（<960px）：左侧竖排导航改成顶部横向导航，双列改单列，主内容不再被挤 ── */
+  @media (max-width: 960px) {
+    .app { grid-template-columns:1fr; }
+    .rail { position:static; height:auto; flex-direction:row; flex-wrap:wrap; align-items:center; gap:10px 16px;
+      border-right:0; border-bottom:1px solid var(--line); padding:12px 16px; overflow:visible; }
+    .brand { margin-bottom:0; }
+    nav { flex-direction:row; flex-wrap:wrap; margin-top:0; gap:4px; flex:1 1 220px; min-width:0; }
+    nav button { padding:7px 12px; white-space:nowrap; }
+    .navgroup { flex-basis:100%; padding:8px 4px 2px; }
+    .railfoot { width:100%; margin-top:0; padding-top:0; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .railfoot .upd-line { flex:1 1 auto; }
+    #upd-btn { width:auto !important; margin-top:0 !important; }
+    main { padding:18px 16px 40px; max-width:100%; }
+    .cols2 { grid-template-columns:1fr; }
+    .hero-main { flex-wrap:wrap; gap:14px; }
+    .hero-chips { margin-left:0; align-items:flex-start; }
+    #mem-wrap { overflow-x:auto; }
+    #mem-table { min-width:640px; }
+    .formgrid { grid-template-columns:1fr; gap:8px; }
+    .formgrid > label { font-size:12px; }
+  }
 </style>
 </head>
 <body>
@@ -99,13 +138,19 @@
   <div class="rail">
     <div class="brand">🎬 刷视频工作台<small>snow-video-kit</small></div>
     <nav>
+      <div class="navgroup">监控</div>
       <button data-v="home" class="on">总览</button>
-      <button data-v="bili">📺 刷B站</button>
-      <button data-v="douyin">🎵 刷抖音</button>
-      <button data-v="brain">大脑</button>
-      <button data-v="memory">记忆库</button>
-      <button data-v="usage">花费</button>
-      <button data-v="logs">运行日志</button>
+      <button data-v="report">📰 日报</button>
+      <button data-v="usage">💰 花费</button>
+      <div class="navgroup">平台</div>
+      <button data-v="bili">📺 B站</button>
+      <button data-v="douyin">🎵 抖音</button>
+      <div class="navgroup">配置</div>
+      <button data-v="bridge">🔗 桥接</button>
+      <button data-v="brain">🧠 大脑</button>
+      <div class="navgroup">数据</div>
+      <button data-v="memory">🗄️ 记忆库</button>
+      <button data-v="logs">📋 运行日志</button>
     </nav>
     <div class="railfoot">
       <div class="upd-line"><span class="dot" id="upd-dot"></span><b>v<span id="upd-ver">…</span></b><span id="upd-hint">检查中…</span></div>
@@ -115,177 +160,238 @@
   <main>
     <!-- ═══ 刷B站（原生页 · 2026-11-07 拆掉原版窗口后新建；按钮按使用频率排序）═══ -->
     <div id="view-bili" class="view" style="display:none">
-      <h2>📺 刷B站 <span class="muted" id="nb-ver" style="font-size:12px"></span></h2>
+      <h2>📺 B站</h2>
       <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <button class="act" id="nb-run">▶ 现在跑一轮</button>
-        <button class="ghost" id="nb-report">📄 最新日报</button>
-        <button class="ghost" id="nb-login">🔑 扫码登录</button>
         <button class="ghost" id="nb-refresh">↻ 刷新</button>
         <span id="nb-badges" style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap"></span>
       </div>
-      <div class="card" id="nb-login-box" style="display:none;margin-top:14px">
-        <h3>🔑 扫码登录 <span class="muted" id="nb-login-state" style="font-size:12px;font-weight:400"></span></h3>
-        <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
-          <img id="nb-qr" alt="二维码" style="width:170px;height:170px;border-radius:10px;background:#fff;padding:6px;box-sizing:border-box">
-          <div style="flex:1;min-width:220px">
-            <div class="muted" style="font-size:12.5px;line-height:1.8">手机打开B站 → 扫一扫，扫这个码 → 在手机上点「确认登录」。<br>这里会自动变绿；三分钟没扫就点「重新出码」。</div>
-            <button class="ghost" id="nb-login-again" style="margin-top:8px">重新出码</button>
-          </div>
-        </div>
-      </div>
-      <div class="card" style="margin-top:14px">
-        <h3>📺 它刷过的视频 <span class="muted" id="nb-wtotal" style="font-size:12px;font-weight:400"></span></h3>
-        <div id="nb-chips" style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0"></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-          <input class="wide" id="nb-wq" placeholder="搜标题 / BV号 / 理由（回车查询）" style="max-width:320px;margin:0">
-          <select id="nb-wsort" style="background:var(--card2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit">
-            <option value="new">最新优先</option><option value="old">最旧优先</option>
-          </select>
-        </div>
-        <div id="nb-watched" style="display:flex;flex-direction:column;gap:10px;max-height:460px;overflow:auto"><span class="muted">加载中…</span></div>
-      </div>
-      <div class="card" style="margin-top:14px">
-        <h3>📄 今天的报告 <button class="ghost" id="nb-report-toggle" style="padding:2px 10px;font-size:11px">收起</button> <button class="ghost" id="nb-open-out" style="padding:2px 10px;font-size:11px">📂 报告文件夹</button> <button class="ghost" id="nb-open-home" style="padding:2px 10px;font-size:11px">📂 家目录</button></h3>
-        <div class="logbox" id="nb-report-body">…</div>
-      </div>
       <div class="card" style="margin-top:14px">
         <h3>⚙️ 设置</h3>
-        <div class="grid cols2">
-          <div class="card" style="background:var(--card2)">
-            <h3>⏰ 什么时候自己跑</h3>
-            <div class="kv" style="margin-top:8px">
-              <span style="display:flex;gap:8px;align-items:center;width:100%">峰谷时段自动刷 <input type="checkbox" id="nb-peak" style="width:auto;margin-left:auto"></span>
-              <span style="display:flex;gap:8px;align-items:center;width:100%">每天最多挑几条 <input type="number" id="nb-perday" min="0" max="50" style="width:80px;margin-left:auto"></span>
-            </div>
-          </div>
-          <div class="card" style="background:var(--card2)">
-            <h3>📨 投递方式</h3>
-            <div class="kv" style="margin-top:8px">
-              <span style="display:flex;gap:8px;align-items:center;width:100%">方式
-                <select id="nb-dmmode" style="margin-left:auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font:inherit">
-                  <option value="only">只发私信（最不打扰）</option>
-                  <option value="both">私信 + 公开评论</option>
-                  <option value="off">都不发</option>
-                </select></span>
-              <span style="display:flex;gap:8px;align-items:center;width:100%">私信双向（收到会回一句） <input type="checkbox" id="nb-dmwatch" style="width:auto;margin-left:auto"></span>
-            </div>
-          </div>
-          <div class="card" style="background:var(--card2)">
-            <h3>💬 评论区</h3>
-            <div class="kv" style="margin-top:8px">
-              <span style="display:flex;gap:8px;align-items:center;width:100%">自动评论 <input type="checkbox" id="nb-autocomment" style="width:auto;margin-left:auto"></span>
-              <span style="display:flex;gap:8px;align-items:center;width:100%">每轮最多几条 <input type="number" id="nb-cpr" min="0" max="20" style="width:70px;margin-left:auto"></span>
-              <span style="display:flex;gap:8px;align-items:center;width:100%">@你的昵称 <input id="nb-mention" style="width:140px;margin-left:auto"></span>
-              <span style="display:flex;gap:8px;align-items:center;width:100%">有人回复就回 <input type="checkbox" id="nb-replyback" style="width:auto;margin-left:auto"></span>
-              <span style="width:100%"><button class="ghost" id="nb-verify" style="width:100%;font-size:12px">🔍 复核评论 —— 去 B站核一遍真的发出来了</button></span>
-            </div>
-          </div>
-          <div class="card" style="background:var(--card2)">
-            <h3>❤️ 互动（默认关，开了才生效）</h3>
-            <div class="kv" style="margin-top:8px">
-              <span style="display:flex;gap:8px;align-items:center;width:100%">看完点赞（挑进日报的视频各赞一次） <input type="checkbox" id="nb-autolike" style="width:auto;margin-left:auto"></span>
-              <span style="display:flex;gap:8px;align-items:center;width:100%">自动收藏挑中的视频到
-                <select id="nb-favfav" style="margin-left:auto;max-width:170px"><option value="0">选收藏夹…</option></select></span>
-              <span class="muted" style="font-size:12px;width:100%">每轮结束自动把挑中的收进所选收藏夹（原生能力，选了夹子就算开启）</span>
-            </div>
-          </div>
-          <div class="card" style="background:var(--card2)">
-            <h3>🔎 关注什么（一行一个关键词）</h3>
-            <textarea id="nb-kws" rows="4" style="width:100%;margin-top:8px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit"></textarea>
+        <div class="setgroup">
+          <div class="gtitle">⏰ 值班</div>
+          <div class="formgrid">
+            <label>峰谷时段自动刷</label>
+            <div class="ctrl"><input type="checkbox" id="nb-peak"> <span class="sub">开启后到点自动跑一轮</span></div>
+            <label>每天最多挑几条</label>
+            <div class="ctrl"><input type="number" id="nb-perday" min="0" max="50" style="width:110px"></div>
+            <label class="full">关注关键词（一行一个）</label>
+            <div class="full"><textarea id="nb-kws" rows="4"></textarea></div>
           </div>
         </div>
-        <div style="margin-top:12px"><button class="act" id="nb-save">💾 保存设置</button> <span class="muted" id="nb-msg"></span></div>
+        <div class="setgroup">
+          <div class="gtitle">📨 投递</div>
+          <div class="formgrid">
+            <label>投递方式</label>
+            <div class="ctrl">
+              <select id="nb-dmmode">
+                <option value="only">只发私信（最不打扰）</option>
+                <option value="both">私信 + 公开评论</option>
+                <option value="off">都不发</option>
+              </select>
+            </div>
+            <label>私信双向</label>
+            <div class="ctrl"><input type="checkbox" id="nb-dmwatch"> <span class="sub">收到私信会回一句</span></div>
+          </div>
+        </div>
+        <div class="setgroup">
+          <div class="gtitle">💬 评论</div>
+          <div class="formgrid">
+            <label>自动评论</label>
+            <div class="ctrl"><input type="checkbox" id="nb-autocomment"></div>
+            <label>每轮最多几条</label>
+            <div class="ctrl"><input type="number" id="nb-cpr" min="0" max="20" style="width:110px"></div>
+            <label>@你的昵称</label>
+            <div class="ctrl"><input id="nb-mention" style="width:210px"></div>
+            <label>有人回复就回</label>
+            <div class="ctrl"><input type="checkbox" id="nb-replyback"></div>
+            <div class="full"><button class="ghost" id="nb-verify">🔍 复核评论 —— 去 B站核一遍真的发出来了</button></div>
+          </div>
+        </div>
+        <div class="setgroup">
+          <div class="gtitle">❤️ 互动</div>
+          <div class="formgrid">
+            <label>看完点赞</label>
+            <div class="ctrl"><input type="checkbox" id="nb-autolike"> <span class="sub">挑进日报的视频各赞一次</span></div>
+            <label>自动收藏到</label>
+            <div class="ctrl"><select id="nb-favfav"><option value="0">选收藏夹…</option></select></div>
+            <div class="full sub">每轮结束自动把挑中的收进所选收藏夹（原生能力，选了夹子就算开启）。</div>
+          </div>
+        </div>
+        <div class="setbar"><button class="act" id="nb-save">💾 保存设置</button> <span class="muted" id="nb-msg"></span></div>
       </div>
     </div>
 
     <!-- ═══ 刷抖音（原生页 · 2026-11-07）═══ -->
     <div id="view-douyin" class="view" style="display:none">
-      <h2>🎵 刷抖音 <span class="muted" id="dy-ver" style="font-size:12px"></span></h2>
+      <h2>🎵 抖音</h2>
       <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <button class="act" id="dy-run">▶ 立即跑一轮</button>
-        <button class="ghost" id="dy-report">📄 最新日报</button>
         <button class="ghost" id="dy-refresh">↻ 刷新</button>
         <span id="dy-badges" style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap"></span>
       </div>
       <div class="card" style="margin-top:14px">
         <h3>⚙️ 设置</h3>
-        <div class="grid cols2">
-          <div class="card" style="background:var(--card2)">
-            <h3>⏰ 什么时候自己跑</h3>
-            <div class="kv" style="margin-top:8px">
-              <span style="display:flex;gap:8px;align-items:center;width:100%">自动按时段刷（总闸） <input type="checkbox" id="dy-autoen" style="width:auto;margin-left:auto"></span>
-              <span style="display:flex;gap:8px;align-items:center;width:100%">峰谷时段（工作日午间+晚间，周末全天算谷） <input type="checkbox" id="dy-peak" style="width:auto;margin-left:auto"></span>
-              <span style="display:flex;gap:8px;align-items:center;width:100%">每天挑几条 <input type="number" id="dy-perday" min="0" style="width:80px;margin-left:auto"></span>
-              <span style="width:100%">星期几跑</span>
-              <span id="dy-days" style="display:flex;gap:6px;flex-wrap:wrap;width:100%"></span>
-              <span style="width:100%">自定义时段（和峰谷同时生效）</span>
-              <span id="dy-windows" style="display:flex;flex-direction:column;gap:6px;width:100%"></span>
-              <span><button class="ghost" id="dy-win-add" style="font-size:12px;padding:3px 10px">＋ 加一个时段</button></span>
-            </div>
+        <div class="setgroup">
+          <div class="gtitle">⏰ 值班</div>
+          <div class="formgrid">
+            <label>自动按时段刷（总闸）</label>
+            <div class="ctrl"><input type="checkbox" id="dy-autoen"></div>
+            <label>峰谷时段</label>
+            <div class="ctrl"><input type="checkbox" id="dy-peak"> <span class="sub">工作日午间+晚间，周末全天算谷</span></div>
+            <label>每天挑几条</label>
+            <div class="ctrl"><input type="number" id="dy-perday" min="0" style="width:110px"></div>
+            <label class="full">星期几跑</label>
+            <div class="full" id="dy-days" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+            <label class="full">自定义时段（和峰谷同时生效）</label>
+            <div class="full" id="dy-windows" style="display:flex;flex-direction:column;gap:6px"></div>
+            <div class="full"><button class="ghost" id="dy-win-add" style="font-size:12px;padding:3px 10px">＋ 加一个时段</button></div>
           </div>
-          <div class="card" style="background:var(--card2)">
-            <h3>📨 自动发送（挑到值得看的就发给名单里每个人）</h3>
-            <div class="kv" style="margin-top:8px">
-              <span style="display:flex;gap:8px;align-items:center;width:100%">自动发送 <input type="checkbox" id="dy-autosend" style="width:auto;margin-left:auto"></span>
-              <span style="width:100%">私信对象名单（多人 = 每人各发一套卡片+文字）</span>
-              <span id="dy-dmpeers" style="display:flex;flex-direction:column;gap:6px;width:100%"></span>
-              <span><button class="ghost" id="dy-pick-dm" style="font-size:12px;padding:3px 10px">👥 从会话里挑人</button></span>
-              <span style="width:100%"><details class="muted" style="font-size:11.5px"><summary>兜底收件人（名单为空时才用，一般不用手填）</summary>
-                <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">昵称 <input id="dy-dmto" style="flex:1;min-width:100px"> sec_uid <input id="dy-dmtoid" style="flex:1;min-width:120px"></div>
-              </details></span>
-            </div>
+        </div>
+        <div class="setgroup">
+          <div class="gtitle">📨 发送</div>
+          <div class="formgrid">
+            <label>自动发送</label>
+            <div class="ctrl"><input type="checkbox" id="dy-autosend"> <span class="sub">挑到值得看的就发给名单里每个人</span></div>
+            <label class="full">私信对象名单（多人 = 每人各发一套卡片+文字）</label>
+            <div class="full" id="dy-dmpeers" style="display:flex;flex-direction:column;gap:6px"></div>
+            <div class="full"><button class="ghost" id="dy-pick-dm" style="font-size:12px;padding:3px 10px">👥 从会话里挑人</button></div>
+            <div class="full"><details class="muted" style="font-size:11.5px"><summary>兜底收件人（名单为空时才用，一般不用手填）</summary>
+              <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">昵称 <input id="dy-dmto" style="flex:1;min-width:100px"> sec_uid <input id="dy-dmtoid" style="flex:1;min-width:120px"></div>
+            </details></div>
           </div>
-          <div class="card" style="background:var(--card2)">
-            <h3>💬 评论区</h3>
-            <div class="kv" style="margin-top:8px">
-              <span style="display:flex;gap:8px;align-items:center;width:100%">每轮自动评论 <input type="checkbox" id="dy-autocomment" style="width:auto;margin-left:auto"></span>
-              <span style="display:flex;gap:8px;align-items:center;width:100%">每轮评论几条 <input type="number" id="dy-cpr" min="0" style="width:70px;margin-left:auto"></span>
-              <span style="width:100%">评论区 @ 提醒（挑到好东西时在评论区 @ 这些人） <input type="checkbox" id="dy-atme" style="width:auto;margin-left:auto"></span>
-              <span style="width:100%">@ 名单（从会话里挑，点选即可）</span>
-              <span id="dy-atpeers" style="display:flex;flex-direction:column;gap:6px;width:100%"></span>
-              <span><button class="ghost" id="dy-pick-at" style="font-size:12px;padding:3px 10px">👥 从会话里挑 @ 对象</button></span>
-            </div>
+        </div>
+        <div class="setgroup">
+          <div class="gtitle">💬 评论</div>
+          <div class="formgrid">
+            <label>每轮自动评论</label>
+            <div class="ctrl"><input type="checkbox" id="dy-autocomment"></div>
+            <label>每轮评论几条</label>
+            <div class="ctrl"><input type="number" id="dy-cpr" min="0" style="width:110px"></div>
+            <label>评论区 @ 提醒</label>
+            <div class="ctrl"><input type="checkbox" id="dy-atme"> <span class="sub">挑到好东西时在评论区 @ 这些人</span></div>
+            <label class="full">@ 名单（从会话里挑，点选即可）</label>
+            <div class="full" id="dy-atpeers" style="display:flex;flex-direction:column;gap:6px"></div>
+            <div class="full"><button class="ghost" id="dy-pick-at" style="font-size:12px;padding:3px 10px">👥 从会话里挑 @ 对象</button></div>
           </div>
-          <div class="card" style="background:var(--card2)">
-            <h3>❤️ 互动（默认关，开了才生效）</h3>
-            <div class="kv" style="margin-top:8px">
-              <span style="display:flex;gap:8px;align-items:center;width:100%">看完点赞（挑进日报的视频各赞一次） <input type="checkbox" id="dy-interact-like" style="width:auto;margin-left:auto"></span>
-              <span style="display:flex;gap:8px;align-items:center;width:100%">看完收藏（挑进日报的视频收进夹子） <input type="checkbox" id="dy-interact-fav" style="width:auto;margin-left:auto"></span>
-            </div>
+        </div>
+        <div class="setgroup">
+          <div class="gtitle">❤️ 互动</div>
+          <div class="formgrid">
+            <label>看完点赞</label>
+            <div class="ctrl"><input type="checkbox" id="dy-interact-like"> <span class="sub">挑进日报的视频各赞一次</span></div>
+            <label>看完收藏</label>
+            <div class="ctrl"><input type="checkbox" id="dy-interact-fav"> <span class="sub">挑进日报的视频收进夹子</span></div>
           </div>
-          <div class="card" style="background:var(--card2)">
-            <h3>💬 聊天模式（她从会话里认人）</h3>
-            <div class="kv" style="margin-top:8px">
-              <span style="display:flex;gap:8px;align-items:center;width:100%">聊天模式（定时检查新私信） <input type="checkbox" id="dy-chatwatch" style="width:auto;margin-left:auto"></span>
-              <span style="display:flex;gap:8px;align-items:center;width:100%">检查间隔（秒，10–300） <input type="number" id="dy-cwsec" min="10" max="300" style="width:80px;margin-left:auto"></span>
-              <span style="display:flex;gap:8px;align-items:center;width:100%">新消息交给
-                <select id="dy-cwtarget" style="margin-left:auto">
-                  <option value="lead">前台会话</option>
-                  <option value="duty">值班小鱼</option>
-                </select></span>
+        </div>
+        <div class="setgroup">
+          <div class="gtitle">🛎 其他</div>
+          <div class="formgrid">
+            <label>聊天模式</label>
+            <div class="ctrl"><input type="checkbox" id="dy-chatwatch"> <span class="sub">定时检查新私信</span></div>
+            <label>检查间隔（秒）</label>
+            <div class="ctrl"><input type="number" id="dy-cwsec" min="10" max="300" style="width:110px"> <span class="sub">10–300</span></div>
+            <label>新消息交给</label>
+            <div class="ctrl">
+              <select id="dy-cwtarget">
+                <option value="lead">前台会话</option>
+                <option value="duty">值班小鱼</option>
+              </select>
             </div>
-          </div>
-          <div class="card" style="background:var(--card2)">
-            <h3>📄 日报多细</h3>
-            <div class="kv" style="margin-top:8px">
-              <span style="display:flex;gap:8px;align-items:center;width:100%">详细程度
-                <select id="dy-rl" style="margin-left:auto">
-                  <option value="full">满版（每条一两行）</option>
-                  <option value="brief">简版（只记挑了哪些）</option>
-                  <option value="off">关（只跑不写）</option>
-                </select></span>
+            <label>日报详细程度</label>
+            <div class="ctrl">
+              <select id="dy-rl">
+                <option value="full">满版（每条一两行）</option>
+                <option value="brief">简版（只记挑了哪些）</option>
+                <option value="off">关（只跑不写）</option>
+              </select>
             </div>
           </div>
         </div>
-        <div style="margin-top:12px"><button class="act" id="dy-save">💾 保存设置</button> <span class="muted" id="dy-msg"></span></div>
+        <div class="setbar"><button class="act" id="dy-save">💾 保存设置</button> <span class="muted" id="dy-msg"></span></div>
       </div>
       <div class="card" id="dy-picker" style="display:none;margin-top:14px">
         <h3>👥 从会话里挑人</h3>
         <div id="dy-picker-body"></div>
       </div>
+    </div>
+    <!-- ═══ 日报（B站+抖音汇总，一页查看，不再弹窗）═══ -->
+    <div id="view-report" class="view" style="display:none">
+      <h2>📰 日报</h2>
+      <div class="card" style="margin-bottom:14px">
+        <h3>📺 B站日报
+          <button class="ghost" id="rp-bili-refresh" style="padding:2px 10px;font-size:11px">↻ 刷新</button>
+          <button class="ghost" id="rp-bili-out" style="padding:2px 10px;font-size:11px">📂 报告文件夹</button>
+          <button class="ghost" id="rp-bili-home" style="padding:2px 10px;font-size:11px">📂 家目录</button>
+        </h3>
+        <div class="logbox" id="rp-bili-body">…</div>
+      </div>
+      <div class="card">
+        <h3>🎵 抖音日报
+          <button class="ghost" id="rp-dy-refresh" style="padding:2px 10px;font-size:11px">↻ 刷新</button>
+        </h3>
+        <div class="logbox" id="rp-dy-body">…</div>
+      </div>
+    </div>
+    <!-- ═══ 桥接（海螺人设/记忆 + 自主权限 + 视听；她经 MCP 自主刷视频的总配置）═══ -->
+    <div id="view-bridge" class="view" style="display:none">
+      <h2>🔗 桥接</h2>
+      <div class="card">
+        <h3>🐚 海螺连接 <span class="muted" style="font-size:12px;font-weight:400">让值班轮用「她」的人设、记忆和口气</span></h3>
+        <div class="formgrid">
+          <label>启用桥接（总闸）</label>
+          <div class="ctrl"><input type="checkbox" id="br-enabled"> <span class="sub">关掉后值班轮不注入人设/记忆</span></div>
+          <label>海螺地址</label>
+          <div class="ctrl"><input class="wide" id="br-url" style="margin:0;max-width:340px"></div>
+          <label>访问令牌（没设密码留空）</label>
+          <div class="ctrl"><input class="wide" id="br-token" style="margin:0;max-width:340px"></div>
+          <label>海螺目录</label>
+          <div class="ctrl"><input class="wide" id="br-homedir" style="margin:0;max-width:340px"> <span class="sub">读它的 config.json 拿当前人格名</span></div>
+          <label>人设备用文件</label>
+          <div class="ctrl"><input class="wide" id="br-persona-fallback" style="margin:0;max-width:340px"> <span class="sub">海螺挂了时用，留空走默认</span></div>
+          <label>人设注入上限（字）</label>
+          <div class="ctrl"><input type="number" id="br-persona-max" min="800" max="12000" style="width:130px"><!-- privacy-ok 字数上限 --></div>
+          <label>语气样本条数</label>
+          <div class="ctrl"><input type="number" id="br-tone" min="0" max="10" style="width:130px"> <span class="sub">0=不注入，避免她"演"以前的样子</span></div>
+          <label class="full">记忆唤起词（一行一个）</label>
+          <div class="full"><textarea id="br-memory-topics" rows="3"></textarea></div>
+        </div>
+        <div class="setbar">
+          <button class="act" id="br-save">💾 保存海螺配置</button>
+          <button class="ghost" id="br-test">🔍 测试桥接</button>
+          <span class="muted" id="br-test-out"></span>
+        </div>
+      </div>
       <div class="card" style="margin-top:14px">
-        <h3>📄 今天的报告 <button class="ghost" id="dy-report-toggle" style="padding:2px 10px;font-size:11px">收起</button></h3>
-        <div class="logbox" id="dy-report-body">…</div>
+        <h3>🤖 自主权限 <span class="muted" style="font-size:12px;font-weight:400">她自己发起刷视频的边界</span></h3>
+        <div class="formgrid">
+          <label>自由模式</label>
+          <div class="ctrl"><input type="checkbox" id="br-free"> <span class="sub">开着 = 不受峰谷时间窗限制，随时放行</span></div>
+          <label>每天最多几轮（0=不限）</label>
+          <div class="ctrl"><input type="number" id="br-rounds" min="0" style="width:130px"></div>
+          <label>每天花费上限 ¥（0=不限）</label>
+          <div class="ctrl"><input type="number" id="br-cost" min="0" step="0.5" style="width:130px"></div>
+        </div>
+        <div class="setbar"><button class="act" id="br-agent-save">💾 保存自主权限</button></div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>👁️ 视听深浅 <span class="muted" style="font-size:12px;font-weight:400">看画面/听声音，借留影模型</span></h3>
+        <div class="formgrid">
+          <label>模式</label>
+          <div class="ctrl">
+            <select id="br-media-mode">
+              <option value="fast">快（只看文字）</option>
+              <option value="deep">深（看画面+听声音）</option>
+            </select>
+          </div>
+          <label>B站每轮深审几条</label>
+          <div class="ctrl"><input type="number" id="br-media-bili" min="0" max="5" style="width:130px"></div>
+          <label>抖音每轮深审几条</label>
+          <div class="ctrl"><input type="number" id="br-media-dy" min="0" max="5" style="width:130px"></div>
+          <label>抽帧数</label>
+          <div class="ctrl"><input type="number" id="br-media-frames" min="1" max="6" style="width:130px"></div>
+        </div>
+        <div class="setbar"><button class="act" id="br-media-save">💾 保存视听设置</button></div>
       </div>
     </div>
     <div id="view-home" class="view">
@@ -315,40 +421,9 @@
         <div class="card">
           <h3><span class="dot" id="dot-brain2"></span>大脑（自填 key） <span class="pill" id="brain-state">检查中</span></h3>
           <div class="kv" id="brain-meta"></div>
-          <p class="muted" style="margin-top:8px">值班轮的判断与日报全走这里，与 DSH 无关。去「大脑」页填写。</p>
+          <p class="muted" style="margin-top:8px">值班轮的判断与日报全走这里，去「大脑」页填写。</p>
         </div>
       </div>
-      <div class="grid cols2" style="margin-top:14px">
-        <div class="card">
-          <h3>📺 刷B站 <span class="pill" id="bili-round">待命</span></h3>
-          <div class="kv" id="bili-meta"></div>
-          <div style="margin-top:12px; display:flex; gap:8px;">
-            <button class="act" id="run-bili">▶ 立即跑一轮</button>
-            <button class="ghost" id="report-bili">📄 最新日报</button>
-          </div>
-        </div>
-        <div class="card">
-          <h3>🎵 刷抖音 <span class="pill" id="douyin-round">待命</span></h3>
-          <div class="kv" id="douyin-meta"></div>
-          <div style="margin-top:12px; display:flex; gap:8px;">
-            <button class="act" id="run-douyin">▶ 立即跑一轮</button>
-            <button class="ghost" id="report-douyin">📄 最新日报</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top:14px">
-        <h3>🤖 她想刷就刷 <span class="pill" id="agent-state">关闭</span></h3>
-        <div class="kv" id="agent-meta"></div>
-        <p class="muted" style="margin-top:8px">开着 = 她随时都能发起刷视频（<b>无时间限制</b>），峰谷窗口不再约束值班轮；可叠加每日轮数 / 花费上限，设 0 = 不限。</p>
-        <div style="display:flex; gap:18px; flex-wrap:wrap; align-items:flex-end; margin-top:10px">
-          <div><div class="agentlab">自由模式</div><label class="switch"><input type="checkbox" id="agent-free"><span class="knob"></span></label></div>
-          <div><div class="agentlab">每天最多几轮（0=不限）</div><input class="agentin" id="agent-rounds" type="number" min="0" value="0"></div>
-          <div><div class="agentlab">每天花费上限 ¥（0=不限）</div><input class="agentin" id="agent-cost" type="number" min="0" step="0.5" value="0"></div>
-          <button class="act" id="agent-save" style="align-self:flex-end">保存</button>
-        </div>
-      </div>
-
       <div class="card" style="margin-top:14px">
         <h3>🆕 最近挑过 <span class="muted" style="font-weight:400;font-size:12px">（跨平台记忆库 · 最近 8 条）</span></h3>
         <div id="feed" class="feed"><span class="muted">加载中…</span></div>
@@ -356,7 +431,7 @@
     </div>
 
     <div id="view-brain" class="view" style="display:none">
-      <h2>大脑（OpenAI 兼容 · 填 key 即用，脱离 DSH）</h2>
+      <h2>大脑（OpenAI 兼容 · 填 key 即用）</h2>
       <div class="card" style="max-width:640px">
         <label class="lab">API 地址（baseURL，OpenAI 兼容）</label>
         <input class="wide" id="brain-url" placeholder="https://api.deepseek.com/v1">
@@ -455,48 +530,24 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   b.classList.add('on'); $('view-' + b.dataset.v).style.display = 'block'
   if (b.dataset.v === 'bili') loadBili()
   if (b.dataset.v === 'douyin') loadDouyin()
+  if (b.dataset.v === 'report') loadReportPage()
+  if (b.dataset.v === 'bridge') loadBridge()
   if (b.dataset.v === 'logs') loadLogs()
   if (b.dataset.v === 'memory') loadMemory()
   if (b.dataset.v === 'usage') loadUsage()
 })
 
 const ageText = (m) => m === null || m === undefined ? '暂无' : (m < 1 ? '刚刚' : Math.round(m) + ' 分钟前')
-function dutyCard(kind, st, round) {
-  $(kind + '-meta').innerHTML =
-    `<span>凭证 <b>${st.credOk ? '✓ 已登录' : '✗ 未登录'}</b></span>` +
-    `<span>环境 <b>${st.venvOk ? '✓' : '✗'}</b></span>` +
-    `<span>今日 <b>${st.todayCount}/${st.perDay}</b></span>` +
-    `<span>最近活动 <b>${ageText(st.lastActivityAgeMin)}</b></span>` +
-    (st.lastLog?.slice(-1)[0] ? `<span style="width:100%" class="muted">${st.lastLog.slice(-1)[0]}</span>` : '')
-  const r = round || {}
-  const map = { running: ['warn', '一轮进行中'], done: ['ok', '上轮完成'], error: ['bad', '上轮失败'], skipped: ['warn', '上轮跳过'], queued: ['warn', '排队中'], stale: ['bad', '上轮超时'] }
-  const pill = map[r.status] || ['ok', '待命']
-  $(kind + '-round').textContent = pill[1]
-  $(kind + '-round').style.background = { warn: '#f3e8c8', ok: '#e3f0ed', bad: '#f6dbd9' }[pill[0]] || '#efece3'
-  $(kind + '-round').style.color = { warn: '#8a6a14', ok: '#1f6f5c', bad: '#8f3a35' }[pill[0]] || '#8a8577'
-}
 
 async function poll() {
   try {
     const s = await api('/api/status')
     $('dot-qq').className = 'dot ' + (s.qq.online ? 'ok' : 'bad')
     $('qq-state').textContent = s.qq.online ? '已连接' + (s.qq.selfId ? ' · ' + s.qq.selfId : '') : '未连接'
-    $('qq-meta').innerHTML = s.qq.online ? `<span>昵称 <b>${s.qq.nick || '-'}</b></span><span>最近探测 <b>${ageText((Date.now() - s.qq.lastCheck) / 60000)}</b></span>` : `<span class="err">${s.qq.error || 'SnowLuma 未登录或未启动'}</span>`
+    $('qq-meta').innerHTML = s.qq.online ? `<span>昵称 <b>${s.qq.nick || '-'}</b></span><span>最近探测 <b>${ageText((Date.now() - s.qq.lastCheck) / 60000)}</b></span>` : `<span class="err">${s.qq.error || 'QQ 未登录或未启动'}</span>`
     $('dot-brain').className = 'dot ' + (s.brain.configured ? 'ok' : 'warn')
     $('brain-state').textContent = s.brain.configured ? '已配置 · ' + s.brain.model : '未配置'
     $('brain-meta').innerHTML = `<span>地址 <b>${s.brain.baseUrl.replace(/^https?:\/\//, '').slice(0, 40)}</b></span><span>key <b>${s.brain.keyMasked || '未填'}</b></span>`
-    dutyCard('bili', s.bili, s.rounds.bili)
-    dutyCard('douyin', s.douyin, s.rounds.douyin)
-    // ── 她想刷就刷 ──
-    const a = s.agent || {}
-    for (const [id, val] of [['agent-free', !!a.freeRun], ['agent-rounds', a.maxRoundsPerDay || 0], ['agent-cost', a.maxCostPerDay || 0]])
-      if (document.activeElement !== $(id)) { if ($(id).type === 'checkbox') $(id).checked = val; else $(id).value = val }
-    $('agent-state').textContent = a.freeRun ? '自由模式开' : '关闭'
-    $('agent-state').style.background = a.freeRun ? 'var(--acc-soft)' : '#1c2438'
-    $('agent-state').style.color = a.freeRun ? '#9db8ff' : 'var(--dim)'
-    $('agent-meta').innerHTML = a.freeRun
-      ? `<span>今日轮数 <b>${s.agent.roundsToday}${a.maxRoundsPerDay ? '/' + a.maxRoundsPerDay : '（不限）'}</b></span><span>今日花费 <b>¥${Number((s.usageToday && s.usageToday.cost) || 0).toFixed(2)}${a.maxCostPerDay ? '/' + a.maxCostPerDay : ''}</b></span>`
-      : '<span>开关关闭 —— 值班轮走峰谷窗口（schedule 页配置），她发起的请求也会受限</span>'
     // ── 首屏 hero ──
     const biliToday = s.bili.todayCount || 0, douyinToday = s.douyin.todayCount || 0
     $('hero-total').textContent = biliToday + douyinToday
@@ -533,18 +584,102 @@ async function loadFeed() {
 
 async function loadLogs() { try { const l = await api('/api/logs'); $('logbox').textContent = l.lines.join('\n') || '暂无日志' } catch (e) { $('logbox').textContent = '读取失败：' + e.message } }
 
-$('run-bili').onclick = async (e) => { e.target.disabled = true; try { const r = await api('/api/run', { method: 'POST', body: JSON.stringify({ kind: 'bili' }) }); toast(r.ok ? 'B站值班轮已在后台开始' : (r.reason || '未启动')); poll() } catch (err) { toast(err.message) } e.target.disabled = false }
-$('run-douyin').onclick = async (e) => { e.target.disabled = true; try { const r = await api('/api/run', { method: 'POST', body: JSON.stringify({ kind: 'douyin' }) }); toast(r.ok ? '抖音值班轮已在后台开始' : (r.reason || '未启动')); poll() } catch (err) { toast(err.message) } e.target.disabled = false }
-const showReport = async (kind) => { try { const r = await api('/api/report?kind=' + kind); const w = window.open('', '_blank'); w.document.write('<pre style="white-space:pre-wrap;font:13px/1.7 Consolas,monospace;padding:24px;background:#151c2b;color:#dbe4f5;min-height:100vh;box-sizing:border-box">' + (r.file ? '【' + r.file + '】\n\n' : '今天还没有日报') + (r.content || '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</pre>') } catch (e) { toast(e.message) } }
-$('report-bili').onclick = () => showReport('bili')
-$('report-douyin').onclick = () => showReport('douyin')
-$('agent-save').onclick = async () => {
+// 日报页：两个平台一起加载，直接写进页面内的 logbox（不再弹窗）
+async function loadReportPage() {
+  const fill = async (kind, bodyId) => {
+    const box = $(bodyId)
+    try {
+      const r = await api('/api/report?kind=' + kind)
+      box.textContent = r.file ? '【' + r.file + '】\n\n' + (r.content || '') : '今天还没有报告 —— 跑一轮之后就有了'
+    } catch (e) { box.textContent = '读取失败：' + e.message }
+  }
+  await Promise.all([fill('bili', 'rp-bili-body'), fill('douyin', 'rp-dy-body')])
+}
+$('rp-bili-refresh').onclick = loadReportPage
+$('rp-dy-refresh').onclick = loadReportPage
+
+// ═══ 桥接页：海螺连接 + 自主权限 + 视听 ═══
+async function loadBridge() {
   try {
-    await api('/api/agent', { method: 'POST', body: JSON.stringify({ freeRun: $('agent-free').checked, maxRoundsPerDay: Number($('agent-rounds').value) || 0, maxCostPerDay: Number($('agent-cost').value) || 0 }) })
-    toast('她想刷就刷：已保存'); poll()
+    const c = await api('/api/conch')
+    const cc = c.conch || {}
+    $('br-enabled').checked = cc.enabled !== false
+    $('br-url').value = cc.url || ''
+    $('br-token').value = cc.token || ''
+    $('br-homedir').value = cc.homeDir || ''
+    $('br-persona-fallback').value = cc.personaFallback || ''
+    $('br-persona-max').value = cc.personaMaxChars ?? 4200
+    $('br-tone').value = cc.toneSamples ?? 0
+    $('br-memory-topics').value = (cc.memoryTopics || []).join('\n')
+  } catch (e) { toast('海螺配置读取失败：' + e.message) }
+  try {
+    const a = await api('/api/agent')
+    const ag = a.agent || {}
+    $('br-free').checked = !!ag.freeRun
+    $('br-rounds').value = ag.maxRoundsPerDay ?? 0
+    $('br-cost').value = ag.maxCostPerDay ?? 0
+  } catch { /* 自主读取失败不吵 */ }
+  try {
+    const m = await api('/api/media')
+    const md = m.media || {}
+    $('br-media-mode').value = md.mode === 'deep' ? 'deep' : 'fast'
+    $('br-media-bili').value = md.deepPerRound?.bili ?? 2
+    $('br-media-dy').value = md.deepPerRound?.douyin ?? 1
+    $('br-media-frames').value = md.frames ?? 3
+  } catch { /* 视听读取失败不吵 */ }
+}
+$('br-save').onclick = async () => {
+  try {
+    await api('/api/conch', { method: 'POST', body: JSON.stringify({
+      enabled: $('br-enabled').checked,
+      url: $('br-url').value,
+      token: $('br-token').value,
+      homeDir: $('br-homedir').value,
+      personaFallback: $('br-persona-fallback').value,
+      personaMaxChars: Number($('br-persona-max').value) || 4200,
+      toneSamples: Number($('br-tone').value) || 0,
+      memoryTopics: $('br-memory-topics').value.split('\n').map(s => s.trim()).filter(Boolean),
+    }) })
+    toast('海螺配置已保存')
   } catch (e) { toast('保存失败：' + e.message) }
 }
-;['agent-free', 'agent-rounds', 'agent-cost'].forEach(id => { const el = $(id); if (el) el.addEventListener('change', () => { try { api('/api/agent', { method: 'POST', body: JSON.stringify({ freeRun: $('agent-free').checked, maxRoundsPerDay: Number($('agent-rounds').value) || 0, maxCostPerDay: Number($('agent-cost').value) || 0 }) }).then(() => poll()).catch(() => {}) } catch { /* 忽略 */ } }) })
+$('br-test').onclick = async (e) => {
+  e.target.disabled = true
+  $('br-test-out').textContent = '测试中…'
+  try {
+    const m = await api('/api/media')
+    const b = m.bridge || {}
+    if (b.ok) {
+      $('br-test-out').textContent = `✓ 桥接正常：人格「${b.persona?.name || '?'}」（${b.persona?.source || ''}，${b.persona?.chars || 0}字），语气样本 ${(b.tone || []).length} 条`
+    } else {
+      $('br-test-out').textContent = '✗ 桥接没通：' + (b.error || '读不到人设，检查海螺地址/目录')
+    }
+  } catch (err) { $('br-test-out').textContent = '✗ ' + err.message }
+  e.target.disabled = false
+}
+$('br-agent-save').onclick = async () => {
+  try {
+    await api('/api/agent', { method: 'POST', body: JSON.stringify({
+      freeRun: $('br-free').checked,
+      maxRoundsPerDay: Number($('br-rounds').value) || 0,
+      maxCostPerDay: Number($('br-cost').value) || 0,
+    }) })
+    toast('自主权限已保存')
+  } catch (e) { toast('保存失败：' + e.message) }
+}
+$('br-media-save').onclick = async () => {
+  try {
+    // media POST 仍要带 conchEnabled，取海螺总开关
+    await api('/api/media', { method: 'POST', body: JSON.stringify({
+      mode: $('br-media-mode').value,
+      biliDeep: Number($('br-media-bili').value) || 0,
+      douyinDeep: Number($('br-media-dy').value) || 0,
+      frames: Number($('br-media-frames').value) || 3,
+      conchEnabled: $('br-enabled').checked,
+    }) })
+    toast('视听设置已保存')
+  } catch (e) { toast('保存失败：' + e.message) }
+}
 
 async function loadBrain() {
   try { const b = (await api('/api/brain')).brain
@@ -561,7 +696,13 @@ $('brain-save').onclick = async () => {
 }
 $('brain-test').onclick = async (e) => {
   e.target.disabled = true; $('brain-result').textContent = '测试中…'
-  try { const r = await api('/api/brain/test', { method: 'POST' }); $('brain-result').textContent = r.ok ? `✓ 连通（${r.ms}ms）：${r.reply}` : '✗ ' + r.error } catch (e2) { $('brain-result').textContent = '✗ ' + e2.message }
+  try {
+    // 先验再存：把页面上当前填的值一起送过去（不落盘）
+    const r = await api('/api/brain/test', { method: 'POST', body: JSON.stringify({ key: $('brain-key').value, baseUrl: $('brain-url').value, model: $('brain-model').value }) })
+    $('brain-result').textContent = r.ok
+      ? `✓ ${r.model || ''} 连通（${r.ms}ms）：${r.reply} —— 别忘了点保存`
+      : '✗ ' + r.error
+  } catch (e2) { $('brain-result').textContent = '✗ ' + e2.message }
   e.target.disabled = false
 }
 
@@ -627,7 +768,7 @@ $('u-price-save').onclick = async () => {
 }
 
 // ═══ 刷B站 原生页（2026-11-07 拆掉原版窗口后新建；按钮按使用频率排序）═══
-let nbCfg = null, nbKey = null, nbPollT = null, nbWState = '', nbWTier = '', nbWOff = 0, nbReportOpen = true
+let nbCfg = null
 const biliApi = (p, opt = {}) => api('/api/bili-duty' + p, opt)
 const nbBadge = (t, good) => `<span class="chip"><span class="dot ${good ? 'ok' : 'bad'}"></span>${t}</span>`
 
@@ -635,12 +776,11 @@ async function loadBili() {
   try {
     const s = await biliApi('/status')
     nbCfg = s.config || {}
-    $('nb-ver').textContent = 'v' + (s.version || '?')
     const picked = s.autoPicked ?? s.pickedToday ?? 0
     $('nb-badges').innerHTML = [
       nbBadge(`自动已挑 ${picked}/${s.perDay ?? nbCfg?.perDay ?? '?'}`, picked < (s.perDay ?? nbCfg?.perDay ?? 0)),
       nbBadge(s.venvReady ? '环境 ✓' : (s.installing ? '环境装中' : '环境未装'), s.venvReady),
-      nbBadge(s.loggedIn ? 'B站已登录' : '未登录（点 🔑 扫码）', s.loggedIn),
+      nbBadge(s.loggedIn ? 'B站已登录' : '未登录（后台补凭证）', s.loggedIn),
       s.running ? nbBadge('跑着…', false) : '',
     ].join('')
     if (document.activeElement !== $('nb-perday')) $('nb-perday').value = nbCfg.perDay ?? 5
@@ -654,70 +794,12 @@ async function loadBili() {
     if (document.activeElement !== $('nb-kws')) $('nb-kws').value = (nbCfg.keywords || []).join('\n')
     $('nb-autolike').checked = !!nbCfg.autoLike
     if (document.activeElement !== $('nb-favfav')) $('nb-favfav').value = String(nbCfg.favFolderId ?? 0)
-    nbChips(); loadNbWatched()
     loadNbFavFolders()
-    if (nbReportOpen) loadNbReport()
-  } catch (e) { toast('B站状态读取失败：' + e.message) }
-}
-
-function nbChips() {
-  const chip = (v, label, cur) => `<button class="ghost" data-nbchip="${v}" style="padding:3px 12px;font-size:12px;${cur === v ? 'border-color:var(--acc);color:var(--acc)' : ''}">${label}</button>`
-  $('nb-chips').innerHTML =
-    [['', '全部'], ['picked', '挑了'], ['skipped', '跳过'], ['commented', '发给你了']].map(([v, l]) => chip(v, l, nbWState)).join('') +
-    ['值得看', '可以看', '不值当'].map((v) => chip(v, v, nbWTier)).join('')
-  $('nb-chips').querySelectorAll('[data-nbchip]').forEach((b) => b.onclick = () => {
-    const v = b.dataset.nbchip
-    if (['', 'picked', 'skipped', 'commented'].includes(v)) nbWState = (nbWState === v ? '' : v)
-    else nbWTier = (nbWTier === v ? '' : v)
-    nbWOff = 0; nbChips(); loadNbWatched()
-  })
-}
-
-async function loadNbWatched() {
-  try {
-    const kw = $('nb-wq').value.trim()
-    const q = `/watched?limit=30&offset=${nbWOff}` + (nbWState ? '&state=' + nbWState : '') +
-      (nbWTier ? '&tier=' + encodeURIComponent(nbWTier) : '') + (kw ? '&q=' + encodeURIComponent(kw) : '') +
-      '&sort=' + encodeURIComponent($('nb-wsort').value)
-    const r = await biliApi(q)
-    $('nb-wtotal').textContent = `共 ${r.total || 0} 条`
-    const rows = r.rows || []
-    $('nb-watched').innerHTML = rows.length ? rows.map((x) =>
-      `<div style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:8px">
-        ${x.bvid ? `<img src="/api/bili-duty/cover?bv=${x.bvid}" loading="lazy" style="width:86px;border-radius:8px">` : ''}
-        <div style="flex:1;min-width:0">
-          <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><a href="${escAttr(x.url || '#')}" target="_blank" rel="noreferrer" style="color:var(--ink)">${esc(x.title || x.bvid || '')}</a></div>
-          <div class="muted" style="font-size:12px;margin-top:3px">${x.day || ''}${x.tier ? ' · ' + x.tier : ''} · ${x.picked ? '挑了' : '跳过'}${(x.commented || x.delivered) ? ' · 发给你了' : ''}</div>
-          ${x.why ? `<div class="muted" style="font-size:12px;margin-top:3px">${esc(x.why)}</div>` : ''}
-        </div>
-      </div>`).join('') : '<span class="muted">这一类还没有记录 —— 跑一轮之后就有了</span>'
-  } catch (e) { $('nb-watched').innerHTML = '<span class="err">读取失败：' + e.message + '</span>' }
-}
-
-async function loadNbReport() {
-  try { const r = await api('/api/report?kind=bili'); $('nb-report-body').textContent = r.file ? '【' + r.file + '】\n\n' + (r.content || '') : '今天还没有报告 —— 跑一轮之后就有了' } catch (e) { $('nb-report-body').textContent = '读取失败：' + e.message }
-}
-
-async function nbLoginStart() {
-  $('nb-login-box').style.display = 'block'
-  $('nb-login-state').textContent = '出码中…'
-  try {
-    const r = await biliApi('/login/start', { method: 'POST', body: '{}' })
-    if (r.qr) { $('nb-qr').src = r.qr; $('nb-login-state').textContent = '等待扫码…' }
-    else { $('nb-login-state').textContent = '没画出二维码 —— 手动打开这个链接登录：' + (r.url || '') }
-    nbKey = r.key || null
-    if (nbKey) { clearTimeout(nbPollT); nbPoll() }
-  } catch (e) { $('nb-login-state').textContent = '出码失败：' + e.message }
-}
-async function nbPoll() {
-  if (!nbKey) return
-  try {
-    const r = await biliApi('/login/poll', { method: 'POST', body: JSON.stringify({ key: nbKey }) })
-    if (r.state === 'ok') { $('nb-login-state').textContent = '✅ 登录成功'; toast('B站登录成功'); loadBili(); return }
-    if (r.state === 'expired') { $('nb-login-state').textContent = '二维码过期了 —— 点「重新出码」'; return }
-    $('nb-login-state').textContent = r.state === 'scanned' ? '手机已扫，等确认…' : '等待扫码…'
-  } catch { /* 网络抖一下就再等 */ }
-  nbPollT = setTimeout(nbPoll, 3000)
+  } catch (e) {
+    // 接口挂了也别让顶部卡片空着，给个兜底状态
+    $('nb-badges').innerHTML = nbBadge('状态读取失败（后台补凭证）', false)
+    toast('B站状态读取失败：' + e.message)
+  }
 }
 
 $('nb-run').onclick = async (e) => {
@@ -725,7 +807,7 @@ $('nb-run').onclick = async (e) => {
   try {
     // ⭐ 2026-11-07（新用户视角体检）：未登录/上一轮在跑时拦住，别白白烧一轮
     const s = await biliApi('/status')
-    if (!s.loggedIn) { toast('B站还没登录 —— 先点 🔑 扫码登录'); return }
+    if (!s.loggedIn) { toast('B站还没登录 —— 先在后台补好登录凭证'); return }
     if (s.running) { toast('上一轮还在跑 —— 等它跑完再开新的'); return }
     const r = await api('/api/run', { method: 'POST', body: JSON.stringify({ kind: 'bili' }) })
     toast(r.ok ? 'B站值班轮已在后台开始（进度看「运行日志」）' : (r.reason || '未启动'))
@@ -733,13 +815,7 @@ $('nb-run').onclick = async (e) => {
   } catch (err) { toast(err.message) }
   e.target.disabled = false
 }
-$('nb-report').onclick = () => showReport('bili')
-$('nb-login').onclick = nbLoginStart
-$('nb-login-again').onclick = nbLoginStart
 $('nb-refresh').onclick = loadBili
-$('nb-wq').addEventListener('keydown', (e) => { if (e.key === 'Enter') { nbWOff = 0; loadNbWatched() } })
-$('nb-wsort').onchange = () => { nbWOff = 0; loadNbWatched() }
-$('nb-report-toggle').onclick = () => { nbReportOpen = !nbReportOpen; $('nb-report-body').style.display = nbReportOpen ? 'block' : 'none'; $('nb-report-toggle').textContent = nbReportOpen ? '收起' : '展开'; if (nbReportOpen) loadNbReport() }
 $('nb-save').onclick = async () => {
   const btn = $('nb-save')
   btn.disabled = true; btn.textContent = '保存中…'
@@ -779,11 +855,11 @@ async function loadNbFavFolders() {
 }
 
 // ═══ 刷抖音 原生页（2026-11-07 新建）═══
-let dyCfg = null, dyReportOpen = true
+let dyCfg = null
 
 // ⭐ 2026-11-07（新用户视角体检）补充的小件：文件夹直开 + 复核评论
-$('nb-open-out').onclick = async () => { try { await biliApi('/open', { method: 'POST', body: JSON.stringify({ what: 'out' }) }); toast('已在资源管理器打开报告文件夹') } catch (e) { toast(e.message) } }
-$('nb-open-home').onclick = async () => { try { await biliApi('/open', { method: 'POST', body: JSON.stringify({ what: 'home' }) }); toast('已在资源管理器打开家目录') } catch (e) { toast(e.message) } }
+$('rp-bili-out').onclick = async () => { try { await biliApi('/open', { method: 'POST', body: JSON.stringify({ what: 'out' }) }); toast('已在资源管理器打开报告文件夹') } catch (e) { toast(e.message) } }
+$('rp-bili-home').onclick = async () => { try { await biliApi('/open', { method: 'POST', body: JSON.stringify({ what: 'home' }) }); toast('已在资源管理器打开家目录') } catch (e) { toast(e.message) } }
 $('nb-verify').onclick = async (e) => {
   e.target.disabled = true; e.target.textContent = '复核中…'
   try { await biliApi('/verify', { method: 'POST', body: '{}' }); toast('复核完成 —— 结果写进「运行日志」') } catch (err) { toast(err.message) }
@@ -796,7 +872,7 @@ const nbBadgesHtml = (s) => {
   return [
     nbBadge(`自动已挑 ${picked}/${s.perDay ?? nbCfg?.perDay ?? '?'}`, picked < (s.perDay ?? nbCfg?.perDay ?? 0)),
     nbBadge(s.venvReady ? '环境 ✓' : (s.installing ? '环境装中' : '环境未装'), s.venvReady),
-    nbBadge(s.loggedIn ? 'B站已登录' : '未登录（点 🔑 扫码）', s.loggedIn),
+    nbBadge(s.loggedIn ? 'B站已登录' : '未登录（后台补凭证）', s.loggedIn),
     s.running ? nbBadge('跑着…', false) : '',
   ].join('')
 }
@@ -822,7 +898,6 @@ async function loadDouyin() {
     const s = await api('/api/douyin-duty/status')
     dyCfg = s.config || {}
     const c = dyCfg
-    $('dy-ver').textContent = s.version ? 'v' + s.version : ''
     let accHtml = ''
     try { const a = await api('/api/douyin-duty/account'); accHtml = (a.logged_in && a.account && (a.account.nick || a.account.uid)) ? nbBadge('账号 ' + (a.account.nick || a.account.uid), true) : nbBadge('未登录', false) } catch { accHtml = '' }
     $('dy-badges').innerHTML = [
@@ -849,11 +924,10 @@ async function loadDouyin() {
     dyDays = Array.isArray(c.scheduleDays) && c.scheduleDays.length ? [...new Set(c.scheduleDays.map(Number))].sort() : [0, 1, 2, 3, 4, 5, 6]
     dyWins = Array.isArray(c.windows) ? c.windows.map((w) => ({ start: String(w?.start || ''), end: String(w?.end || ''), label: String(w?.label || '') })) : []
     dyRenderDays(); dyRenderWins(); dyRenderPeers(); dyRenderAt()
-    if (dyReportOpen) loadDyReport()
-  } catch (e) { toast('抖音状态读取失败：' + e.message) }
-}
-async function loadDyReport() {
-  try { const r = await api('/api/report?kind=douyin'); $('dy-report-body').textContent = r.file ? '【' + r.file + '】\n\n' + (r.content || '') : '今天还没有报告 —— 跑一轮之后就有了' } catch (e) { $('dy-report-body').textContent = '读取失败：' + e.message }
+  } catch (e) {
+    $('dy-badges').innerHTML = nbBadge('状态读取失败', false)
+    toast('抖音状态读取失败：' + e.message)
+  }
 }
 
 // ── 时段表 / 星期几（⭐ 2026-11-07：自定义时段刷视频，之前漏了）──
@@ -968,9 +1042,7 @@ $('dy-run').onclick = async (e) => {
   } catch (err) { toast(err.message) }
   e.target.disabled = false
 }
-$('dy-report').onclick = () => showReport('douyin')
 $('dy-refresh').onclick = loadDouyin
-$('dy-report-toggle').onclick = () => { dyReportOpen = !dyReportOpen; $('dy-report-body').style.display = dyReportOpen ? 'block' : 'none'; $('dy-report-toggle').textContent = dyReportOpen ? '收起' : '展开'; if (dyReportOpen) loadDyReport() }
 $('dy-save').onclick = async () => {
   const btn = $('dy-save')
   btn.disabled = true; btn.textContent = '保存中…'
@@ -1016,8 +1088,10 @@ async function updateCheck(silent) {
       dot.className = 'dot warn'
       hint.textContent = '有新版本（落后 ' + r.behind + ' 个提交）→ 点「一键更新」'
       btn.classList.add('upd-btn-pulse')
-    } else { dot.className = 'dot bad'; hint.textContent = r.note || '检查失败' }
-    if (!silent) toast(r.ok ? (r.upToDate ? '已是最新 v' + (r.version || '?') : '有新版本，点「一键更新」即可') : (r.note || '检查失败'))
+    }
+    else if (r.network) { dot.className = 'dot'; hint.textContent = r.note || '连不上更新服务器，不影响使用' }
+    else { dot.className = 'dot bad'; hint.textContent = r.note || '检查失败' }
+    if (!silent && !r.network) toast(r.ok ? (r.upToDate ? '已是最新 v' + (r.version || '?') : '有新版本，点「一键更新」即可') : (r.note || '检查失败'))
   } catch (e) { dot.className = 'dot bad'; hint.textContent = '检查失败：' + e.message }
 }
 async function updateRun() {

@@ -10,6 +10,8 @@ import { execFileSync, spawn } from 'node:child_process'
 import { chat, chatWithTools } from './brain.mjs'
 import { kitLog, todayKey } from './config.js'
 import * as videomem from './videomem.mjs'
+import { buildContext, bridgePromptBlock, stopRing } from './conch-bridge.mjs'
+import { downloadMedia, describeVideoBuffer, deepEnabled, deepQuota } from './eyes.mjs'
 
 export function douyinStatus(cfg, resolve) {
   const { home, python } = resolve
@@ -59,7 +61,60 @@ const WATCH_TOOL = {
     },
   },
 }
-function execWatch({ name, args }) {
+/** 深模式：真看画面 + 听声音（播放直链走签名详情接口，只读一次） */
+const DEEP_TOOL = {
+  type: 'function',
+  function: {
+    name: 'look_deep',
+    description: '仔细看一条抖音视频：解析播放直链 → 抽几帧画面让视觉模型讲给你听 + 音轨转成文字（等于听它说了什么）。只在深模式可用，每轮有额度。演示类或你要断言画面时用它。',
+    parameters: {
+      type: 'object',
+      properties: {
+        vid: { type: 'string', description: '视频 ID（15–25 位数字）' },
+        why: { type: 'string', description: '你为什么想仔细看它（一句话，帮模型聚焦）' },
+      },
+      required: ['vid'],
+      additionalProperties: false,
+    },
+  },
+}
+
+async function lookDeepDouyin(args) {
+  const cfg = WATCH_CFG, resolve = WATCH_RESOLVE, budget = WATCH_BUDGET
+  const vid = String(args?.vid || '').trim()
+  if (!/^\d{15,25}$/.test(vid)) return '参数不对：vid 必须是 15–25 位数字的视频 ID'
+  if (budget.used >= budget.max) return `本轮深审额度用完了（最多 ${budget.max} 条）——这条按文案+评论判断。`
+  budget.used++
+  kitLog(`抖音深审：${vid}（本轮第 ${budget.used}/${budget.max} 条）`)
+  const script = path.join(resolve.toolsDir, 'dy-play-url.mjs')
+  if (!fs.existsSync(script)) return '缺少 dy-play-url.mjs（抖音工具目录被移动？）——如实写"画面没看成"。'
+  let info
+  try {
+    const out = execFileSync(process.execPath, [script, '--aweme', vid], {
+      cwd: resolve.home, env: { ...process.env, DOUYIN_HOME: resolve.home }, timeout: 150000, encoding: 'utf8',
+    })
+    info = JSON.parse(String(out).trim().split(/\r?\n/).filter((l) => l.trim().startsWith('{')).pop() || '{}')
+  } catch (e) {
+    return '拿不到播放直链（' + String(e?.message || e).slice(0, 120) + '）——如实写"画面没看成"，别猜。'
+  }
+  if (!info.ok) return '拿不到播放直链（' + (info.error || '未知') + '）——如实写"画面没看成"。'
+  const durS = Math.round((info.durationMs || 0) / 1000)
+  if (durS > 20 * 60) return `这条 ${durS} 秒太长（>20 分钟），不下整条；按文案+评论判断。`
+  try {
+    const buf = await downloadMedia(info.url, { referer: 'https://www.douyin.com/' })
+    const wantAudio = String(cfg.media?.audio || 'auto') !== 'off'
+    const d = await describeVideoBuffer(cfg, buf, {
+      frames: cfg.media?.frames || 3, audio: wantAudio, hint: String(info.desc || '').slice(0, 60),
+    })
+    if (!d.ok) return '看/听失败了（' + d.error + '）——如实写"画面没看成"，别编。'
+    return `【视频 ${vid} · 真看了】\n${d.desc}`
+  } catch (e) {
+    return '下载/看失败（' + String(e?.message || e).slice(0, 120) + '）——如实写"画面没看成"。'
+  }
+}
+
+async function execWatch({ name, args }) {
+  if (name === 'look_deep') return await lookDeepDouyin(args)
   if (name !== 'look_comments') return '未知工具 ' + name
   const vid = String(args?.vid || '').trim()
   if (!/^\d{15,25}$/.test(vid)) return '参数不对：vid 必须是 15–25 位数字的视频 ID'
@@ -89,6 +144,7 @@ function execWatch({ name, args }) {
 }
 // 看评论区时的运行上下文（runRound 里赋值）
 let WATCH_TOOLS_DIR = '', WATCH_HOME = '', WATCH_PYTHON = '', WATCH_NODE = ''
+let WATCH_CFG = null, WATCH_RESOLVE = null, WATCH_BUDGET = { used: 0, max: 0 }
 
 /** 值班轮：她自己看（工具循环：真实看评论区）→ 日报落盘 */
 export async function runRound(cfg, resolve, { reason = 'manual' } = {}) {
@@ -101,7 +157,10 @@ export async function runRound(cfg, resolve, { reason = 'manual' } = {}) {
   WATCH_TOOLS_DIR = resolve.toolsDir; WATCH_HOME = home; WATCH_PYTHON = resolve.python
   WATCH_NODE = path.join(cfg.snow?.homeDir || '', 'node.exe')
   const charter = safeRead(path.join(home, 'duty.md'), '(章程缺失)')
-  const persona = safeRead(path.join(home, 'persona.md'), safeRead(path.join(home, '..', 'douyin-duty', 'persona.md'), ''))
+  const dcfg = (() => { try { return JSON.parse(fs.readFileSync(path.join(home, 'config.json'), 'utf8')) } catch { return {} } })()
+  // 桥接海螺：她是谁 / 她记得什么 / 她平时怎么说话（失败只降级，不拦本轮）
+  const bridge = await buildContext(cfg, { cues: ['刷视频', '抖音', ...((dcfg.keywords || []).slice(0, 3))] })
+  const bridgeBlock = bridgePromptBlock(bridge, { kind: 'douyin' })
   const evidence = buildEvidence(cfg, resolve, Math.min(cfg.douyin.evidenceLimit, cfg.douyin.perDay - st.todayCount + 4))
   const items = evidence?.list || evidence?.items || evidence?.candidates || []
   const list = Array.isArray(items) ? items : []
@@ -110,24 +169,43 @@ export async function runRound(cfg, resolve, { reason = 'manual' } = {}) {
   const remain = Math.max(0, cfg.douyin.perDay - st.todayCount)
   videomem.configureMemory(cfg.memory?.dbPath)
   const memBlock = videomem.memoryBlockForPrompt({ platform: 'douyin' })
+  const deep = deepEnabled(cfg) && deepQuota(cfg, 'douyin') > 0
+  WATCH_CFG = cfg; WATCH_RESOLVE = resolve; WATCH_BUDGET = { used: 0, max: deepQuota(cfg, 'douyin') }
   const system = [
     charter,
-    persona ? '─── 人设 ───\n' + persona : '',
+    bridgeBlock,
     '─── 本轮动态参数（覆盖章程对应项）───',
-    `今天：${todayKey()}。本轮最多挑 ${remain} 条（每天总量 ${cfg.douyin.perDay}，已挑 ${st.todayCount}）。`,
+    `今天：${todayKey()}。本轮最多记 ${remain} 条（每天总量 ${cfg.douyin.perDay}，已记 ${st.todayCount}）——**也可以一条都不记**，没有值得的就是没有。`,
     '只允许从【本轮证据】里挑选；证据之外的vid一律不得出现在日报里。',
     memBlock,
     '─── 看的方式（2026-11-07 新规矩）───',
     '证据只是发现候选的线索，**判断以你亲眼看到的为准**：工具 `look_comments(vid)` 会真实打开那条视频的评论区，把热门评论原文给你。',
     '**每条要写进日报的候选，必须先用 look_comments 看过至少一次**——把你真实看到的评论区氛围、高赞评论写进「为什么值得」和一句话点评（别只复述证据里的标题和简介）。',
     '评论区清一色引流 / 骂战 / 广告 ⇒ 这条的成色打折；有真诚讨论 ⇒ 加分。看不了（风控/超时）就如实写「评论区没看成」，别编。',
+    deep
+      ? `─── 看/听（深模式已开：本轮最多仔细看 ${WATCH_BUDGET.max} 条）───\n`
+        + '对**演示类、没字幕、或你打算断言画面**的视频，调 `look_deep(vid)`：它会解析播放直链 → 抽几帧给视觉模型看 + 把音轨转成文字（等于听它说了什么）。'
+        + '把看到听到的写进「为什么值得」。额度用完就按文案+评论判断。'
+      : '⚠️ 抖音这一侧当前是**快模式**（只看文案+评论）：**绝不许在日报里断言画面里有什么**，没看就说没看。',
     '输出格式：直接输出日报 Markdown，每条以 `### <视频ID>` 标题行开始（标题行只写ID，不要别的字），后接「为什么值得」与一句话点评。最后不要总结陈词。',
   ].filter(Boolean).join('\n\n')
 
-  const user = '【本轮证据 JSON】（候选线索）\n' + JSON.stringify(list).slice(0, 60000) + `\n\n（原因：${reason}）先对要挑的候选逐条 look_comments 看评论区，再按章程输出日报。`
-  const { final } = await chatWithTools(cfg, [{ role: 'system', content: system }, { role: 'user', content: user }], [WATCH_TOOL], execWatch, { maxRounds: 20, kind: 'douyin-round' })
+  const tools = deep ? [WATCH_TOOL, DEEP_TOOL] : [WATCH_TOOL]
+  const user = '【本轮证据 JSON】（候选线索）\n' + JSON.stringify(list).slice(0, 60000) + `\n\n（原因：${reason}）先对要挑的候选逐条 look_comments 看评论区${deep ? '（需要时再 look_deep 看画面/听声音）' : ''}，再按章程输出日报。`
+  let final = ''
+  try {
+    ; ({ final } = await chatWithTools(cfg, [{ role: 'system', content: system }, { role: 'user', content: user }], tools, execWatch, { maxRounds: 20, kind: 'douyin-round' }))
+  } finally {
+    stopRing() // 记忆进程用完就收，别留孤儿
+  }
   const report = String(final || '').trim()
-  if (!/^\s*#{2,3}/m.test(report) && !/###\s*\d{15,25}/.test(report)) throw new Error('大脑输出里没有 ### <视频ID> 标题行，拒收以防污染日报')
+  // 她有权决定这轮什么都不写：明确写「（这轮没写）」就当真，不塞东西进日报
+  const decidedSkip = /[（(]\s*这轮没写\s*[）)]/.test(report) && !/###\s*\d{15,25}/.test(report)
+  if (decidedSkip) {
+    kitLog('抖音轮：她这轮没写（这是她的判断，不是故障）')
+    return { ok: true, skipped: true, summary: report.slice(0, 500), todayCount: st.todayCount, perDay: cfg.douyin.perDay, tools: [] }
+  }
+  if (!/###\s*\d{15,25}/.test(report)) throw new Error('大脑输出里没有 ### <视频ID> 标题行，拒收以防污染日报')
 
   // 落盘：追加到今天的日报 + 更新 seen.md
   const outDir = path.join(home, 'out')

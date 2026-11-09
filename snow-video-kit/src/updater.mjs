@@ -9,10 +9,13 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { stateWrite, stateRead, kitLog, KIT_DIR } from './config.js'
 
-const GIT = 'C:/Program Files/Git/cmd/git.exe'
+// 实际 git 路径按候选探测（本机在 D:/Git），都找不到才退回 PATH
+const GIT = ['C:/Program Files/Git/cmd/git.exe', 'C:/Git/cmd/git.exe', 'D:/Git/cmd/git.exe'].find((p) => fs.existsSync(p)) || 'git'
+// 强制 git 用 UTF-8 输出，避免中文 commit 在非 UTF-8 代码页下被按 GBK 解码成乱码
+const GIT_UTF8 = ['-c', 'core.quotepath=false', '-c', 'i18n.logOutputEncoding=utf8']
 const git = (args, timeout = 30000) => {
   try {
-    return { ok: true, out: execFileSync(fs.existsSync(GIT) ? GIT : 'git', args, { cwd: KIT_DIR, timeout, encoding: 'utf8' }).trim() }
+    return { ok: true, out: execFileSync(GIT, [...GIT_UTF8, ...args], { cwd: KIT_DIR, timeout, encoding: 'utf8', env: { ...process.env, LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' } }).trim() }
   } catch (e) {
     const out = String(e.stdout || '').trim()
     return { ok: false, out, error: String(e.stderr || e.message || e).trim().slice(0, 300) }
@@ -45,13 +48,17 @@ export function scrubSecret(s) {
 }
 export function fetchTarget() {
   try {
-    const url = execFileSync(fs.existsSync(GIT) ? GIT : 'git', ['remote', 'get-url', 'origin'], { cwd: KIT_DIR, timeout: 8000, encoding: 'utf8' }).trim()
+    const url = execFileSync(GIT, [...GIT_UTF8, 'remote', 'get-url', 'origin'], { cwd: KIT_DIR, timeout: 8000, encoding: 'utf8', env: { ...process.env, LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' } }).trim()
     const m = /^https:\/\/github\.com\/([^/]+)\//.exec(url)
     const tok = fs.readFileSync(TOKEN_FILE, 'utf8').trim()
     if (m && tok && !/\s/.test(tok)) return { url: url.replace('https://github.com/', `https://${m[1]}:${tok}@github.com/`), tok }
   } catch { /* 读不到就退回 origin */ }
   return { url: '', tok: '' }
 }
+
+// 网络连接类错误（连不上 GitHub 时 git 报的这类文案），与代码本身无关
+const NET_PATTERNS = /unable to access|could not resolve|connection (was )?reset|recv failure|failed to connect|connection timed out|connection refused|operation timed out|network is unreachable|couldn't connect|ssl connection|the remote end hung up|early eof/i
+const isNetworkError = (s) => NET_PATTERNS.test(String(s || ''))
 
 /** 检查更新：git fetch + 对比 FETCH_HEAD 与本地 HEAD */
 export function checkUpdate() {
@@ -61,7 +68,10 @@ export function checkUpdate() {
   if (!remote) return { ok: true, version, head, upToDate: true, note: '本地仓库未配置远程（git remote add origin <url> 后可一键拉取更新）', behind: 0, newCommits: [] }
   const { url, tok } = fetchTarget()
   const f = git(['fetch', url || remote, 'main', '--quiet'], 60000)
-  if (!f.ok) return { ok: false, version, head, note: 'fetch 失败：' + scrubSecret(f.error || '无法连接远程'), behind: -1 }
+  if (!f.ok) {
+    if (isNetworkError(f.error)) return { ok: false, network: true, version, head, note: '暂时连不上更新服务器（网络问题），不影响使用', behind: -1 }
+    return { ok: false, version, head, note: 'fetch 失败：' + scrubSecret(f.error || '无法连接远程'), behind: -1 }
+  }
   const cmp = git(['rev-list', '--count', 'HEAD..FETCH_HEAD'], 30000)
   if (!cmp.ok) return { ok: false, version, head, note: '对比失败：' + scrubSecret(cmp.error || ''), behind: -1 }
   const behind = Number(cmp.out) || 0

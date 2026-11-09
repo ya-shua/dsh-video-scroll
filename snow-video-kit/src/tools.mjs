@@ -6,7 +6,7 @@ import { loadConfig, resolveBili, resolveDouyin } from './config.js'
 import { snowStatus } from './snow.mjs'
 import * as bili from './bili.mjs'
 import * as douyin from './douyin.mjs'
-import { roundState, kickRoundDetached, runRound, latestReport } from './rounds.mjs'
+import { roundState, kickRoundDetached, latestReport } from './rounds.mjs'
 
 export const TOOLS = [
   {
@@ -64,9 +64,9 @@ export async function callTool(name, args = {}) {
       return r.ok ? (r.file ? `【${args.kind} 最新日报 ${r.file}】` + '\n' + r.content.slice(0, 12000) : `${args.kind} 今天还没有日报`) : ('读取失败：' + r.error)
     }
     case 'video_run_round': {
-      // 她发起 = byAgent：自由模式开着时随时放行（无时间窗），受每日轮数/花费限额约束
-      if (args.kind === 'bili') return JSON.stringify(kickRoundDetached('bili', args.reason || '她发起', { byAgent: true }))
-      return JSON.stringify(await runRound('douyin', { reason: args.reason || '她发起', byAgent: true }))
+      // 她发起 = byAgent：两个平台都走异步派发立即返回（不再同步等抖音整轮跑完导致 MCP 超时），
+      // 自由模式开着时随时放行（无时间窗），受每日轮数/花费限额约束
+      return JSON.stringify(kickRoundDetached(args.kind, args.reason || '她发起', { byAgent: true }))
     }
     case 'video_bili_hot':
       return (await bili.biliQuick(cfg, resolveB, 'bili_hot_videos', {})).slice(0, 6000)

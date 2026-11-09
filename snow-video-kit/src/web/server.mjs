@@ -77,6 +77,15 @@ function statusSnapshot() {
     douyin: douyinEngine.douyinStatus(cfg, rd),
     rounds: { bili: roundState('bili'), douyin: roundState('douyin') },
     agent: { ...(cfg.agent || {}), roundsToday: roundsToday() },
+    media: cfg.media || {},
+    conchBridge: (() => {
+      let personaName = ''
+      try {
+        const home = cfg.conch?.homeDir || 'D:\\AI\\云端大肥鱼\\海螺'
+        personaName = String(JSON.parse(fs.readFileSync(path.join(home, 'config.json'), 'utf8')).persona || '')
+      } catch { /* 读不到就空 */ }
+      return { enabled: cfg.conch?.enabled !== false, personaName }
+    })(),
     tools: TOOLS.map((t) => ({ name: t.name, description: t.description })),
     series, usageToday, memoryTotal,
   }
@@ -111,7 +120,7 @@ export function startWeb() {
       return json(res, 200, { ok: Boolean(r.ok), started: Boolean(r.ok), detail: r.detail || r.reason || '', error: r.ok ? undefined : r.reason })
     }
     const key = scrollKey()
-    if (!key) return json(res, 503, { ok: false, error: '综合面板依赖 DSH：当前 DSH 未运行（或 key 丢失）。值班轮请用「总览」页。' })
+    if (!key) return json(res, 503, { ok: false, error: '平台后台没在运行（或连接已失效）。值班轮请用「总览」页。' })
     const target = `http://127.0.0.1:8390${url.pathname}${url.search}`
     const up = { ...req.headers, host: '127.0.0.1:8390', 'x-console-key': key }
     delete up.cookie; delete up.referer; delete up.origin
@@ -120,7 +129,7 @@ export function startWeb() {
       pres.pipe(res)
     })
     preq.on('error', () => {
-      try { json(res, 503, { ok: false, error: 'DSH 未运行：完整面板功能（扫码/评论/私信）需要 DSH 在跑；值班轮请用「总览」页。' }) } catch { /* 忽略 */ }
+      try { json(res, 503, { ok: false, error: '平台后台没在运行：完整功能（评论/私信）需要它在跑；值班轮请用「总览」页。' }) } catch { /* 忽略 */ }
     })
     req.pipe(preq)
   }
@@ -195,7 +204,10 @@ export function startWeb() {
         const s = statusSnapshot(); return json(res, 200, { ok: true, brain: { ...s.brain, keySet: Boolean(getBrainKey()) } })
       }
       if (url.pathname === '/api/brain/test' && req.method === 'POST') {
-        try { return json(res, 200, await brainTest(loadConfig())) } catch (e) { return json(res, 200, { ok: false, error: String(e?.message || e) }) }
+        // 页面上刚填、还没保存的 key/baseUrl/model 也能先验一遍（验通再保存）
+        let body = {}
+        try { body = await readBody(req) } catch { body = {} }
+        try { return json(res, 200, await brainTest(loadConfig(), body || {})) } catch (e) { return json(res, 200, { ok: false, error: String(e?.message || e) }) }
       }
       if (url.pathname === '/api/memory' && req.method === 'GET') {
         const vm = await import('../videomem.mjs')
@@ -237,6 +249,68 @@ export function startWeb() {
       if (url.pathname === '/api/log' && req.method === 'GET') {
         const { tailLog } = await import('../services.mjs')
         return json(res, 200, tailLog(url.searchParams.get('id') || 'kit', Number(url.searchParams.get('lines')) || 40))
+      }
+      // ── 看/听 与 桥接（2026-11-08）──
+      if (url.pathname === '/api/media' && req.method === 'GET') {
+        const c = loadConfig()
+        const { loadPersona, loadToneSamples, conchPersonaName, summarizePersona } = await import('../conch-bridge.mjs')
+        let info = { ok: false }
+        try {
+          const p = await loadPersona(c)
+          const tone = await loadToneSamples(c, 3)
+          info = {
+            ok: Boolean(p.text),
+            persona: { name: p.name, source: p.source, chars: p.text.length, preview: summarizePersona(p.text, 420) },
+            tone,
+          }
+        } catch (e) { info = { ok: false, error: String(e?.message || e) } }
+        return json(res, 200, {
+          media: c.media || {},
+          conch: { enabled: c.conch?.enabled !== false, url: c.conch?.url, homeDir: c.conch?.homeDir, personaName: conchPersonaName(c) },
+          bridge: info,
+        })
+      }
+      if (url.pathname === '/api/media' && req.method === 'POST') {
+        const body = await readBody(req)
+        const cur = loadConfig().media || {}
+        const mode = body.mode === 'deep' ? 'deep' : 'fast'
+        const biliN = Math.max(0, Math.min(5, Number(body.biliDeep) || 0))
+        const dyN = Math.max(0, Math.min(5, Number(body.douyinDeep) || 0))
+        const frames = Math.max(1, Math.min(6, Number(body.frames) || cur.frames || 3))
+        const audio = ['auto', 'always', 'off'].includes(body.audio) ? body.audio : (cur.audio || 'auto')
+        const enabled = body.conchEnabled === undefined ? (loadConfig().conch?.enabled !== false) : Boolean(body.conchEnabled)
+        saveConfigPatch({
+          media: { mode, deepPerRound: { bili: biliN, douyin: dyN }, frames, audio },
+          conch: { enabled },
+        })
+        kitLog(`看/听：mode=${mode} B站${biliN}条/抖音${dyN}条 ${frames}帧 audio=${audio}；桥接=${enabled ? '开' : '关'}`)
+        return json(res, 200, { ok: true })
+      }
+      // ── 海螺桥接完整配置（2026-11-09：之前只能在 config.json 手改，UI 补入口）──
+      if (url.pathname === '/api/conch' && req.method === 'GET') {
+        const c = loadConfig()
+        const { conchPersonaName } = await import('../conch-bridge.mjs')
+        return json(res, 200, { conch: c.conch || {}, personaName: conchPersonaName(c) })
+      }
+      if (url.pathname === '/api/conch' && req.method === 'POST') {
+        const body = await readBody(req)
+        const topics = Array.isArray(body.memoryTopics)
+          ? body.memoryTopics.map((x) => String(x || '').trim()).filter(Boolean).slice(0, 12)
+          : []
+        saveConfigPatch({
+          conch: {
+            enabled: body.enabled !== false,
+            url: String(body.url || '').trim() || 'http://127.0.0.1:7801',
+            token: String(body.token || ''),
+            homeDir: String(body.homeDir || '').trim(),
+            personaFallback: String(body.personaFallback || '').trim(),
+            personaMaxChars: Math.max(800, Math.min(12000, Number(body.personaMaxChars) || 4200)), // privacy-ok 字数上限
+            toneSamples: Math.max(0, Math.min(10, Number(body.toneSamples) || 0)),
+            memoryTopics: topics,
+          },
+        })
+        kitLog(`海螺桥接：enabled=${body.enabled !== false ? '开' : '关'} url=${body.url} 人格topics=${topics.length}个`)
+        return json(res, 200, { ok: true })
       }
       if (url.pathname === '/api/agent' && req.method === 'GET') {
         const c = loadConfig()

@@ -89,9 +89,42 @@ export async function chatWithTools(cfg, messages, tools, execute, { maxRounds =
   }
 }
 
-/** 连通性自检：一个 1 token 的最小请求 */
-export async function brainTest(cfg) {
+/**
+ * 连通性自检：一个 1 token 的最小请求。
+ * override 里的 key/baseUrl/model 优先于已保存的（页面里填完就能先验，验通再保存）。
+ */
+export async function brainTest(cfg, override = {}) {
+  const baseUrl = String(override.baseUrl || cfg.brain.baseUrl || '').trim().replace(/\/$/, '')
+  const model = String(override.model || cfg.brain.model || '').trim()
+  const key = String(override.key || getBrainKey() || '').trim()
+  if (!baseUrl) return { ok: false, error: 'baseURL 还没填（例如 https://api.deepseek.com/v1）' }
+  if (!model) return { ok: false, error: '模型名还没填' }
+  if (!key) return { ok: false, error: 'key 还没填' }
   const t0 = Date.now()
-  const msg = await chat(cfg, [{ role: 'user', content: '回复两个字：就绪' }], { maxTokens: 8, temperature: 0, kind: 'test' })
-  return { ok: true, model: cfg.brain.model, reply: String(msg.content || '').trim().slice(0, 40), ms: Date.now() - t0 }
+  let r
+  try {
+    r = await fetch(baseUrl + '/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key },
+      body: JSON.stringify({ model, messages: [{ role: 'user', content: '回复两个字：就绪' }], max_tokens: 8, temperature: 0 }),
+    })
+  } catch (e) {
+    const code = e?.cause?.code || e?.code || ''
+    const detail = e?.cause?.message || e?.message || String(e)
+    return { ok: false, error: `连不上 ${baseUrl}${code ? '（' + code + '）' : ''}：${String(detail).slice(0, 140)}`, ms: Date.now() - t0 }
+  }
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok) {
+    const msg = String(j?.error?.message || JSON.stringify(j).slice(0, 160))
+    let hint = ''
+    if (r.status === 401 || /invalid.? api.?key|unauthor/i.test(msg)) hint = '（key 不对，或已经失效）'
+    else if (r.status === 403 && /quota|balance|free tier|insufficient/i.test(msg)) hint = '（这个 key 的额度用完了：充值或换一个）'
+    else if (r.status === 404) hint = '（baseURL 或模型名不对）'
+    else if (r.status === 429) hint = '（限流了，等会儿再试）'
+    return { ok: false, error: `HTTP ${r.status}${hint}：${msg}`, ms: Date.now() - t0 }
+  }
+  const reply = String(j?.choices?.[0]?.message?.content || '').trim()
+  if (!reply) return { ok: false, error: '能连上，但模型没回内容（模型名可能不对）', ms: Date.now() - t0 }
+  if (j.usage) recordUsage('test', model, j.usage)
+  return { ok: true, model, reply: reply.slice(0, 40), ms: Date.now() - t0, usage: j.usage || null }
 }

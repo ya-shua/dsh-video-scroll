@@ -16,7 +16,7 @@ const SHENGLAI_LOG = 'D:/AI/声音工坊/panel.log'
 
 export const SERVICES = [
   { id: 'videokit', name: '刷视频 · 工作台', port: 8412, path: '/', self: true },
-  { id: 'videoconsole', name: '刷视频 · 综合面板', port: 8390, path: '/', note: '需 DSH 运行' },
+  { id: 'videoconsole', name: '刷视频 · 综合面板', port: 8390, path: '/', note: '需后台运行' },
   { id: 'ringmind', name: '环形的心 · 记忆面板', port: 5173, path: '/' },
   { id: 'liuying', name: '留影 · 视觉接入', port: 5188, path: '/' },
   { id: 'shenglai', name: '声来 · 语音工作台', port: 17878, path: '/' },

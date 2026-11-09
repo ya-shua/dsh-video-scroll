@@ -91,8 +91,13 @@ export class McpStdio {
     const r = await this.request('tools/call', { name, arguments: args }, timeoutMs)
     if (r?.error) throw new Error(`MCP ${name}: ${r.error.message || '未知错误'}`)
     const out = r?.result || {}
-    const text = (out.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('\n')
-    return { isError: Boolean(out.isError), text }
+    const content = out.content || []
+    const text = content.filter((c) => c.type === 'text').map((c) => c.text).join('\n')
+    // ⭐ 2026-11-08：图片内容别再扔——B站故事板帧要喂给留影的视觉模型（eyes.mjs）
+    const images = content
+      .filter((c) => c.type === 'image' && c.data)
+      .map((c) => ({ base64: c.data, mime: c.mimeType || 'image/png' }))
+    return { isError: Boolean(out.isError), text, images }
   }
 
   /** OpenAI tools 数组（从 tools/list 转换） */

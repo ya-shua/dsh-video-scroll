@@ -52,10 +52,38 @@ const DEFAULTS = {
     autoSend: false,                          // v1 默认只写日报不自动发送
   },
   schedule: { enabled: false, noon: ['12:00', '14:00'], night: ['00:30', '08:30'] },
+  reads: {
+    tiebaEnabled: false,    // 📖 看贴吧：默认关（用户在 📖 页开启）
+    tiebaForums: [],        // 关注的吧名单（吧名，如 原神）
+    tiebaPerRound: 3,       // 每轮最多推几帖
+    novelEnabled: false,    // 📖 看小说：默认关
+    novels: [],             // 追更书单 [{name, url}]（目录页链接）
+  },
   agent: {
     freeRun: false,          // ★ 她想刷就刷：开着 = 值班轮不受峰谷时间窗限制，她的触发随时放行
     maxRoundsPerDay: 0,      // 每天最多几轮（B站+抖音合计，0 = 不限）
     maxCostPerDay: 0,        // 每天大脑花费上限（¥，0 = 不限）
+  },
+  // ⭐ 2026-11-08：桥接海螺——值班轮用「她」的人设/记忆/口气（enabled=false 整条关掉）
+  conch: {
+    enabled: true,
+    url: 'http://127.0.0.1:7801',
+    token: '',                                    // 海螺面板要令牌时填（默认未设密码则留空）
+    homeDir: 'D:\\AI\\云端大肥鱼\\海螺',          // 读它的 config.json 拿当前人格名
+    personaFallback: '',                          // 海螺挂了时的备用文件（空 = ~/.dsh/douyin-duty/persona.md）
+    personaMaxChars: 4200,                        // 人设注入上限（按小节抽，不是硬截断）
+    toneSamples: 0,                               // 语气样本条数（0=不注入；注入了她就容易"演"自己以前的样子）
+    memoryTopics: ['刷视频', '抖音', 'B站', '爸', '口味', '喜欢'],
+  },
+  // 环形的心（她的长期记忆）：留空 = 自动找 桌面\插件\环形的心\mcp\server.mjs
+  ring: { mcpServer: '', dbPath: '' },
+  // ⭐ 看画面 / 听声音（借留影的模型）：fast = 只看文字；deep = 抽帧 + 听声
+  media: {
+    mode: 'fast',
+    deepPerRound: { bili: 2, douyin: 1 },         // 每轮最多深审几条
+    frames: 3,                                    // 深审抽几帧
+    audio: 'auto',                                // auto（没字幕才听）| always | off
+    liuyingHome: 'D:\\我的电脑\\桌面\\插件\\留影',
   },
   web: { port: 8412, host: '127.0.0.1' },
 }
