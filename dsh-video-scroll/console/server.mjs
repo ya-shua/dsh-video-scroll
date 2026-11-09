@@ -60,7 +60,10 @@ function sendJson(res, code, data) {
 }
 function writeShortcut(port, key) {
   const url = `http://127.0.0.1:${port}/?k=${key}`
-  const dir = ['D:\\我的电脑\\桌面', path.join(os.homedir(), 'Desktop')].find((d) => existsSync(d))
+  // 桌面不写死：本机布局是 <桌面>\\插件\\刷视频插件\\dsh-video-scroll\\console，
+  // 往上数四层就是桌面；换了机器退回 ~/Desktop（都没有就跳过）
+  const dir = [path.resolve(HERE, '..', '..', '..', '..'), path.join(os.homedir(), 'Desktop')]
+    .find((d) => existsSync(d))
   if (!dir) return
 }
 

@@ -2,7 +2,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { loadConfig, resolveBili, resolveDouyin, KIT_DIR } from './config.js'
+import { loadConfig, resolveBili, resolveDouyin, KIT_DIR, sibling } from './config.js'
 import { existsSync } from 'node:fs'
 
 const cfg = loadConfig()
@@ -43,7 +43,7 @@ if (cfg.conch?.enabled === false) {
 }
 
 console.log('5) 看/听（留影）')
-const ly = cfg.media?.liuyingHome || ''
+const ly = cfg.media?.liuyingHome || sibling('留影')
 if (cfg.media?.mode !== 'deep') {
   console.log('  - 当前快模式（只看文字）；深模式才需要留影')
 } else {

@@ -116,7 +116,9 @@ function statusSnapshot() {
 function writeShortcut(port, token) {
   // 桌面快捷方式（放系统桌面；找不到就跳过）
   try {
-    const desk = ['D:\\我的电脑\\桌面', path.join(os.homedir(), 'Desktop')].find((d) => existsSync(d))
+    // 桌面路径不写死：本机布局是 <桌面>\插件\<插件名>，所以插件目录的上一级就是桌面；
+    // 换了机器就退回 ~/Desktop（找不到就跳过写快捷方式，不影响服务）
+    const desk = [path.dirname(path.dirname(KIT_DIR)), path.join(os.homedir(), 'Desktop')].find((d) => existsSync(d))
     if (desk) fs.writeFileSync(path.join(desk, '刷视频工作台.url'), `[InternetShortcut]\nURL=http://127.0.0.1:${port}/?token=${token}\n`, 'utf8')
   } catch { /* 忽略 */ }
 }
@@ -125,7 +127,7 @@ export function startWeb(opts = {}) {
   const cfg = loadConfig()
   const port = Number(opts.port) || cfg.web.port || 8412   // opts.port 只给自检/换端口用，默认仍读 config.json
   // 内嵌综合面板的静态资产来源（dsh-video-scroll 的 console 目录）与其 8390 服务
-  const SCROLL_CONSOLE = 'D:\\我的电脑\\桌面\\插件\\刷视频插件\\dsh-video-scroll\\console'
+  const SCROLL_CONSOLE = path.join(path.dirname(KIT_DIR), 'dsh-video-scroll', 'console')
   const STATIC_MAP = {
     '/app.js': { file: path.join(SCROLL_CONSOLE, 'app.js'), type: 'text/javascript; charset=utf-8' },
     '/vendor/react.production.min.js': { file: path.join(SCROLL_CONSOLE, 'vendor', 'react.production.min.js'), type: 'text/javascript; charset=utf-8' },

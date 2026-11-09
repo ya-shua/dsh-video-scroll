@@ -16,6 +16,12 @@ export const KIT_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url))
 export const STATE_DIR = path.join(KIT_DIR, 'state')
 export const CONFIG_FILE = path.join(KIT_DIR, 'config.json')
 
+// 插件根与邻居目录：本机布局是 <桌面>\插件\刷视频插件\snow-video-kit。
+// 以前这里写死了 D:\我的电脑\桌面\插件\…（公开仓库里等于把本机目录结构贴出去），
+// 现在一律从模块位置推导；跨机器、或者把 kit 拆出去单用时也照样算得对。
+export const PLUGIN_ROOT = path.dirname(KIT_DIR)
+export const sibling = (name) => path.join(path.dirname(PLUGIN_ROOT), name)
+
 export function dshHome() { return process.env.DSH_HOME || path.join(os.homedir(), '.dsh') }
 export const biliHome = () => path.join(dshHome(), 'bili-duty')
 export const douyinHome = () => path.join(dshHome(), 'douyin-duty')
@@ -46,7 +52,7 @@ const DEFAULTS = {
     home: '',                                 // 空 = ~/.dsh/douyin-duty
     node: '',                                 // 空 = 当前 node
     python: '',                               // 空 = home/.venv/Scripts/python.exe
-    toolsDir: 'D:\\我的电脑\\桌面\\插件\\刷视频插件\\dsh-video-scroll\\douyin\\tools', // forward-pick.py / mcp-server.mjs 所在
+    toolsDir: '',                             // 空 = 插件根下的 dsh-video-scroll/douyin/tools
     evidenceLimit: 12,
     perDay: 10,
     autoSend: false,                          // v1 默认只写日报不自动发送
@@ -83,7 +89,7 @@ const DEFAULTS = {
     deepPerRound: { bili: 2, douyin: 1 },         // 每轮最多深审几条
     frames: 3,                                    // 深审抽几帧
     audio: 'auto',                                // auto（没字幕才听）| always | off
-    liuyingHome: 'D:\\我的电脑\\桌面\\插件\\留影',
+    liuyingHome: '',                          // 空 = 插件目录里的兄弟目录「留影」
   },
   web: { port: 8412, host: '127.0.0.1' },
 }
@@ -143,7 +149,7 @@ export function resolveDouyin(cfg) {
   const home = cfg.douyin.home || douyinHome()
   const node = cfg.douyin.node || process.execPath
   const python = cfg.douyin.python || path.join(home, '.venv', 'Scripts', 'python.exe')
-  const toolsDir = cfg.douyin.toolsDir || path.join(home, 'tools')
+  const toolsDir = cfg.douyin.toolsDir || path.join(PLUGIN_ROOT, 'dsh-video-scroll', 'douyin', 'tools')
   return { home, node, python, toolsDir, mcpServer: path.join(toolsDir, 'mcp-server.mjs') }
 }
 
