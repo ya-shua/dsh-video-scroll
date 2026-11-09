@@ -9,6 +9,20 @@
   "kind": "app",
   "page": "http://127.0.0.1:8412/",
   "port": 8412,
+  "capabilities": [
+    "B站/抖音值班刷视频",
+    "候选挑片与打分",
+    "写值班日报",
+    "6 个 MCP 工具（video_*）",
+    "跨平台视频记忆库",
+    "本机工作台面板"
+  ],
+  "standalone": {
+    "works_alone": true,
+    "needs": ["Node >= 22（纯标准库，无 npm 依赖）", "B站/抖音 MCP 子进程（真刷片才要）", "大脑 API key（写报告才要）", "QQ/SnowLuma 在线（值班轮才要）"],
+    "how": "cd snow-video-kit && node src/index.js → http://127.0.0.1:8412/（工作台 + /api/health + /api/manifest；智能体功能要另外三样）"
+  },
+  "contract": "docs/对接.md",
   "launch": {
     "runtime": "node",
     "entry": "src/index.js",

@@ -145,6 +145,7 @@
       <div class="navgroup">平台</div>
       <button data-v="bili">📺 B站</button>
       <button data-v="douyin">🎵 抖音</button>
+      <button data-v="reading">📖 阅读</button>
       <div class="navgroup">配置</div>
       <button data-v="bridge">🔗 桥接</button>
       <button data-v="brain">🧠 大脑</button>
@@ -315,6 +316,47 @@
         <div id="dy-picker-body"></div>
       </div>
     </div>
+    <!-- ═══ 阅读：看小说 / 看贴吧 ═══ -->
+    <div id="view-reading" class="view" style="display:none">
+      <h2>📖 阅读（看小说 / 看贴吧）</h2>
+      <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="act" id="rd-run-tieba" type="button">▶ 看贴吧一轮</button>
+        <button class="act" id="rd-run-novel" type="button">▶ 看小说一轮</button>
+        <button class="ghost" id="rd-refresh" type="button">↻ 刷新</button>
+        <span id="rd-badges" style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap"></span>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>💬 看贴吧</h3>
+        <div class="setgroup">
+          <div class="gtitle">贴吧设置</div>
+          <div class="formgrid">
+            <label>启用看贴吧</label>
+            <div class="ctrl"><input type="checkbox" id="rd-tieba-enabled"> <span class="sub">开启后值班线才会跑</span></div>
+            <label>每轮最多推几帖</label>
+            <div class="ctrl"><input type="number" id="rd-tieba-perround" min="1" max="20" style="width:110px"></div>
+            <label class="full">关注的吧（逗号分隔，如：原神,崩坏星穹铁道）</label>
+            <div class="full"><input class="wide" id="rd-tieba-forums" style="margin:0"></div>
+            <div class="full"><button class="ghost" id="rd-tieba-login" type="button">🔑 贴吧登录（第一次需要）</button>
+              <span class="sub">登录一次 cookie 就记住，之后自动读取</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>📚 看小说（追更）</h3>
+        <div class="setgroup">
+          <div class="gtitle">小说设置</div>
+          <div class="formgrid">
+            <label>启用看小说</label>
+            <div class="ctrl"><input type="checkbox" id="rd-novel-enabled"> <span class="sub">开启后值班线才会跑</span></div>
+            <label class="full">追更书单（书名 + 目录页链接，可加多本）</label>
+            <div class="full" id="rd-novels" style="display:flex;flex-direction:column;gap:6px"></div>
+            <div class="full"><button class="ghost" id="rd-novel-add" type="button" style="font-size:12px;padding:3px 10px">＋ 加一本书</button></div>
+            <div class="full"><button class="ghost" id="rd-novel-login" type="button">🔑 番茄登录（看需要）</button></div>
+          </div>
+        </div>
+        <div class="setbar"><button class="act" id="rd-save" type="button">💾 保存设置</button> <span class="muted" id="rd-msg"></span></div>
+      </div>
+    </div>
     <!-- ═══ 日报（B站+抖音汇总，一页查看，不再弹窗）═══ -->
     <div id="view-report" class="view" style="display:none">
       <h2>📰 日报</h2>
@@ -436,7 +478,11 @@
         <label class="lab">API 地址（baseURL，OpenAI 兼容）</label>
         <input class="wide" id="brain-url" placeholder="https://api.deepseek.com/v1">
         <label class="lab">模型</label>
-        <input class="wide" id="brain-model" placeholder="deepseek-chat">
+        <div style="display:flex;gap:8px">
+          <input class="wide" id="brain-model" list="brain-model-list" placeholder="deepseek-chat" style="margin:0">
+          <button class="ghost" id="brain-fetch-models" style="white-space:nowrap" type="button">🔄 获取模型</button>
+        </div>
+        <datalist id="brain-model-list"></datalist>
         <label class="lab">API Key（已保存时留空 = 不修改）</label>
         <input class="wide" id="brain-key" type="password" placeholder="sk-...">
         <label class="lab" style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -530,6 +576,7 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   b.classList.add('on'); $('view-' + b.dataset.v).style.display = 'block'
   if (b.dataset.v === 'bili') loadBili()
   if (b.dataset.v === 'douyin') loadDouyin()
+  if (b.dataset.v === 'reading') loadReads()
   if (b.dataset.v === 'report') loadReportPage()
   if (b.dataset.v === 'bridge') loadBridge()
   if (b.dataset.v === 'logs') loadLogs()
@@ -704,6 +751,20 @@ $('brain-test').onclick = async (e) => {
       : '✗ ' + r.error
   } catch (e2) { $('brain-result').textContent = '✗ ' + e2.message }
   e.target.disabled = false
+}
+$('brain-fetch-models').onclick = async (e) => {
+  const btn = e.target, out = $('brain-result')
+  btn.disabled = true; out.textContent = '获取模型列表…'
+  try {
+    const r = await api('/api/brain/models', { method: 'POST', body: JSON.stringify({ key: $('brain-key').value, baseUrl: $('brain-url').value }) })
+    if (!r.ok) { out.textContent = '✗ ' + r.error }
+    else {
+      $('brain-model-list').innerHTML = r.models.map((m) => `<option value="${escAttr(m)}">`).join('')
+      out.textContent = `✓ 找到 ${r.models.length} 个模型，点模型框右侧箭头选择（也可手动填）`
+      toast('已获取 ' + r.models.length + ' 个可用模型')
+    }
+  } catch (e2) { out.textContent = '✗ ' + e2.message }
+  btn.disabled = false
 }
 
 async function loadMemory() {
@@ -1072,6 +1133,83 @@ $('dy-save').onclick = async () => {
   try { const r = await api('/api/douyin-duty/config', { method: 'POST', body: JSON.stringify(patch) }); if (r.config) dyCfg = r.config; $('dy-msg').textContent = '已保存 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }); toast('抖音设置已保存') } catch (e) { $('dy-msg').textContent = '保存失败：' + e.message; toast('抖音设置保存失败：' + e.message) }
   btn.disabled = false; btn.textContent = '💾 保存设置'
 }
+
+// ───────── 阅读（看小说 / 看贴吧）─────────
+function rdNovelRow(book = { name: '', url: '' }) {
+  const row = document.createElement('div')
+  row.style.cssText = 'display:flex;gap:8px'
+  row.innerHTML =
+    '<input class="rd-bname" placeholder="书名" style="flex:1;min-width:120px;margin:0">' +
+    '<input class="rd-burl" placeholder="目录页链接 https://..." style="flex:2;min-width:160px;margin:0">' +
+    '<button class="ghost rd-bdel" type="button" style="white-space:nowrap">删除</button>'
+  row.querySelector('.rd-bname').value = book.name || ''
+  row.querySelector('.rd-burl').value = book.url || ''
+  row.querySelector('.rd-bdel').onclick = () => row.remove()
+  return row
+}
+function rdCollectNovels() {
+  return [...$('rd-novels').querySelectorAll('div')].map((row) => ({
+    name: row.querySelector('.rd-bname').value.trim(),
+    url: row.querySelector('.rd-burl').value.trim(),
+  })).filter((b) => b.name && b.url)
+}
+function rdBadge(label, st) {
+  const map = { running: ['运行中', 'var(--acc)'], queued: ['排队中', 'var(--warn)'], done: ['完成', 'var(--ok)'], error: ['失败', 'var(--bad)'], skipped: ['未跑', 'var(--dim)'], stale: ['已过期', 'var(--dim)'] }
+  const [txt, color] = map[st.status] || ['空闲', 'var(--dim)']
+  return `<span class="pill" style="color:${color}">${label}：${txt}${st.reason ? '（' + escAttr(st.reason) + '）' : ''}</span>`
+}
+async function loadReads() {
+  try {
+    const d = await api('/api/reads')
+    const r = d.reads || {}
+    $('rd-tieba-enabled').checked = !!r.tiebaEnabled
+    $('rd-novel-enabled').checked = !!r.novelEnabled
+    $('rd-tieba-perround').value = r.tiebaPerRound || 3
+    $('rd-tieba-forums').value = (r.tiebaForums || []).join(',')
+    $('rd-novels').innerHTML = ''
+    const books = r.novels || []
+    books.forEach((b) => $('rd-novels').appendChild(rdNovelRow(b)))
+    if (!books.length) $('rd-novels').appendChild(rdNovelRow())
+    $('rd-badges').innerHTML = rdBadge('贴吧', d.tiebaState || {}) + rdBadge('小说', d.novelState || {})
+  } catch (e) { toast('加载阅读配置失败：' + e.message) }
+}
+$('rd-novel-add').onclick = () => $('rd-novels').appendChild(rdNovelRow())
+$('rd-save').onclick = async () => {
+  const msg = $('rd-msg'); msg.textContent = '保存中…'
+  try {
+    const body = {
+      tiebaEnabled: $('rd-tieba-enabled').checked,
+      novelEnabled: $('rd-novel-enabled').checked,
+      tiebaPerRound: $('rd-tieba-perround').value,
+      tiebaForums: $('rd-tieba-forums').value.split(','),
+      novels: rdCollectNovels(),
+    }
+    const r = await api('/api/reads', { method: 'POST', body: JSON.stringify(body) })
+    if (r.ok) { msg.textContent = '✓ 已保存 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }); toast('阅读设置已保存'); loadReads() }
+  } catch (err) { msg.textContent = '✗ ' + err.message }
+}
+async function rdRun(kind, btn) {
+  btn.disabled = true
+  try {
+    const r = await api('/api/reads/run', { method: 'POST', body: JSON.stringify({ kind }) })
+    toast(r.ok ? r.detail : (r.reason || r.error))
+    setTimeout(loadReads, 1500)
+  } catch (e) { toast(e.message) }
+  btn.disabled = false
+}
+$('rd-run-tieba').onclick = (e) => rdRun('tieba', e.target)
+$('rd-run-novel').onclick = (e) => rdRun('novel', e.target)
+$('rd-refresh').onclick = loadReads
+async function rdLogin(kind, btn) {
+  btn.disabled = true
+  try {
+    const r = await api('/api/reads/login', { method: 'POST', body: JSON.stringify({ kind }) })
+    toast(r.ok ? '已弹出登录窗口，登录后回来即可' : r.error)
+  } catch (e) { toast(e.message) }
+  btn.disabled = false
+}
+$('rd-tieba-login').onclick = (e) => rdLogin('tieba', e.target)
+$('rd-novel-login').onclick = (e) => rdLogin('novel', e.target)
 
 // ── 左下角更新组件：状态提示 + 可交互一键更新 ──
 let updInfo = {}

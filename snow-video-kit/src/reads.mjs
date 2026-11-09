@@ -10,10 +10,11 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { kitLog, todayKey } from './config.js'
+import { spawn } from 'node:child_process'
+import { kitLog, todayKey, stateRead, stateWrite, KIT_DIR } from './config.js'
 import * as videomem from './videomem.mjs'
 import { chatWithTools } from './brain.mjs'
-import { readerPage } from './reader-chrome.mjs'
+import { readerPage, visibleLogin } from './reader-chrome.mjs'
 
 const exists = (p) => { try { return fs.existsSync(p) } catch { return false } }
 const safeRead = (p, fb) => { try { return fs.readFileSync(p, 'utf8') } catch { return fb } }
@@ -175,6 +176,41 @@ export async function runReads(cfg, kind, { reason = 'manual' } = {}) {
 }
 
 function cfgHome() {
-  // 日报/阅读记录放 kit 的 data 下（与记忆库同区）
+  // 日报/阅读记录放 kit 的 data 下（记忆库同区）
   return path.join(process.cwd(), 'data')
+}
+
+/* ────────────── 状态 + 异步派发（与值班轮同一套规矩） ────────────── */
+
+const READS_TTL = 2 * 60 * 60 * 1000 // 2 小时内 running 视为仍在跑
+
+export function readsState(kind) {
+  const s = stateRead(`reads-${kind}.json`, {})
+  if (s.status === 'running' && Date.now() - (s.startedAt || 0) > READS_TTL) s.status = 'stale'
+  return s
+}
+
+export function readsRunning(kind) {
+  return readsState(kind).status === 'running'
+}
+
+/** 异步派发一轮阅读（独立进程 reads-runner.mjs），立即返回 */
+export function kickReadsDetached(kind, reason = '工作台手动') {
+  if (kind !== 'tieba' && kind !== 'novel') return { ok: false, reason: '未知阅读类型' }
+  if (readsRunning(kind)) return { ok: false, reason: '上一轮还在跑' }
+  const runner = path.join(KIT_DIR, 'src', 'reads-runner.mjs')
+  stateWrite(`reads-${kind}.json`, { status: 'queued', queuedAt: Date.now(), reason })
+  const child = spawn(process.execPath, [runner, '--kind', kind, '--reason', reason], {
+    detached: true, stdio: 'ignore',
+    env: { ...process.env, KIT_DIR },
+  })
+  child.unref()
+  kitLog(`阅读轮已派发（独立进程）：${kind}`)
+  return { ok: true, started: true, detail: `${kind === 'novel' ? '看小说' : '看贴吧'}已在后台开始，稍后刷新看结果` }
+}
+
+/** 开可见窗口登录（贴吧/番茄），cookies 存 reader-profile，登录一次即可 */
+export function startReaderLogin(kind) {
+  const url = kind === 'novel' ? 'https://fanqienovel.com/' : 'https://tieba.baidu.com/'
+  return visibleLogin(url)
 }

@@ -10,14 +10,16 @@ import path from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { loadConfig, saveConfigPatch, kitLog, recentLogs, STATE_DIR, resolveBili, resolveDouyin, dshHome } from '../config.js'
+import { loadConfig, saveConfigPatch, kitLog, recentLogs, STATE_DIR, resolveBili, resolveDouyin, dshHome, KIT_DIR } from '../config.js'
+import { KIT_VERSION } from '../version.mjs'
 import * as videomem from '../videomem.mjs'
 import * as usage from '../usage.mjs'
 import { snowStatus } from '../snow.mjs'
-import { getBrainKey, setBrainKey, brainConfigured, brainTest } from '../brain.mjs'
+import { getBrainKey, setBrainKey, brainConfigured, brainTest, listModels } from '../brain.mjs'
 import * as biliEngine from '../bili.mjs'
 import * as douyinEngine from '../douyin.mjs'
 import { roundState, kickRoundDetached, latestReport, roundsToday } from '../rounds.mjs'
+import { readsState, kickReadsDetached, startReaderLogin } from '../reads.mjs'
 import { TOOLS } from '../tools.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -40,6 +42,25 @@ let TOKEN = ensureToken()
 const maskKey = (k) => (k ? k.slice(0, 6) + '…' + k.slice(-4) + `（${k.length}位）` : '')
 
 function json(res, code, data) { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(data)) }
+
+// ── 对接契约用的两样东西：进程启动时刻 + 插件根 metadata.json（只读，无隐私）──
+const STARTED_AT = Date.now()
+
+function pluginMetadata() {
+  // 先找包内（snow-video-kit/metadata.json，拆出去单独用时），再找上一层（海螺插件目录布局）
+  for (const p of [path.join(KIT_DIR, 'metadata.json'), path.join(KIT_DIR, '..', 'metadata.json')]) {
+    try { return JSON.parse(readFileSync(p, 'utf8')) } catch { /* 试下一个 */ }
+  }
+  return {}
+}
+
+// 本地时区的 ISO 8601（与 meme-library 的 started_at 同一种写法，方便宿主统一解析）
+function isoLocal(ms) {
+  const d = new Date(ms)
+  const off = -d.getTimezoneOffset()
+  const pad = (n) => String(Math.floor(Math.abs(n))).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${off >= 0 ? '+' : '-'}${pad(off / 60)}:${pad(off % 60)}`
+}
 
 function statusSnapshot() {
   const cfg = loadConfig()
@@ -100,9 +121,9 @@ function writeShortcut(port, token) {
   } catch { /* 忽略 */ }
 }
 
-export function startWeb() {
+export function startWeb(opts = {}) {
   const cfg = loadConfig()
-  const port = cfg.web.port || 8412
+  const port = Number(opts.port) || cfg.web.port || 8412   // opts.port 只给自检/换端口用，默认仍读 config.json
   // 内嵌综合面板的静态资产来源（dsh-video-scroll 的 console 目录）与其 8390 服务
   const SCROLL_CONSOLE = 'D:\\我的电脑\\桌面\\插件\\刷视频插件\\dsh-video-scroll\\console'
   const STATIC_MAP = {
@@ -144,7 +165,7 @@ export function startWeb() {
         const body = await readBody(req)
         const { name, arguments: args } = body.params || {}
         if (body.method === 'initialize') {
-          return json(res, 200, { jsonrpc: '2.0', id: body.id ?? null, result: { protocolVersion: '2024-11-05', capabilities: { tools: {} }, serverInfo: { name: 'snow-video-kit', version: '0.3.0' } } })
+          return json(res, 200, { jsonrpc: '2.0', id: body.id ?? null, result: { protocolVersion: '2024-11-05', capabilities: { tools: {} }, serverInfo: { name: 'snow-video-kit', version: KIT_VERSION } } })
         }
         if (body.method === 'notifications/initialized' || body.method === 'notifications/cancelled') {
           res.writeHead(202); return res.end()
@@ -169,6 +190,22 @@ export function startWeb() {
       // 服务只听 127.0.0.1，本机访问一律直接进（不再有登录页/令牌校验门槛）。
       if (url.searchParams.get('token')) {
         res.setHeader('set-cookie', `vsk_sess=${TOKEN}; Path=/; SameSite=Strict; Max-Age=31536000`)
+      }
+      // ── 对接契约（只读、无隐私）：探活 + 清单，供任意宿主判断「接得对不对、版本对不对」──
+      if (url.pathname === '/api/health' && req.method === 'GET') {
+        return json(res, 200, {
+          ok: true,
+          id: pluginMetadata().id || '',
+          version: KIT_VERSION,
+          uptime_s: Math.floor((Date.now() - STARTED_AT) / 1000),
+        })
+      }
+      if (url.pathname === '/api/manifest' && req.method === 'GET') {
+        return json(res, 200, {
+          ok: true,
+          metadata: pluginMetadata(),
+          runtime: { port, pid: process.pid, started_at: isoLocal(STARTED_AT) },
+        })
       }
       // 页面
       if (req.method === 'GET' && url.pathname === '/') {
@@ -208,6 +245,43 @@ export function startWeb() {
         let body = {}
         try { body = await readBody(req) } catch { body = {} }
         try { return json(res, 200, await brainTest(loadConfig(), body || {})) } catch (e) { return json(res, 200, { ok: false, error: String(e?.message || e) }) }
+      }
+      if (url.pathname === '/api/brain/models' && req.method === 'POST') {
+        // 拉取该大脑可用模型列表，页面上未保存的 baseUrl/key 也能先拉
+        let mb = {}
+        try { mb = await readBody(req) } catch { mb = {} }
+        try { return json(res, 200, await listModels(loadConfig(), mb || {})) } catch (e) { return json(res, 200, { ok: false, error: String(e?.message || e) }) }
+      }
+      if (url.pathname === '/api/reads' && req.method === 'GET') {
+        const c = loadConfig()
+        return json(res, 200, { reads: c.reads || {}, tiebaState: readsState('tieba'), novelState: readsState('novel') })
+      }
+      if (url.pathname === '/api/reads' && req.method === 'POST') {
+        const body = await readBody(req)
+        const reads = { ...(loadConfig().reads || {}) }
+        if (typeof body.tiebaEnabled === 'boolean') reads.tiebaEnabled = body.tiebaEnabled
+        if (typeof body.novelEnabled === 'boolean') reads.novelEnabled = body.novelEnabled
+        if (Array.isArray(body.tiebaForums)) reads.tiebaForums = body.tiebaForums.map((s) => String(s).trim()).filter(Boolean)
+        if (body.tiebaPerRound !== undefined && Number.isFinite(Number(body.tiebaPerRound))) reads.tiebaPerRound = Math.max(1, Math.min(20, Number(body.tiebaPerRound)))
+        if (Array.isArray(body.novels)) {
+          reads.novels = body.novels
+            .map((b) => ({ name: String(b.name || '').trim(), url: String(b.url || '').trim() }))
+            .filter((b) => b.name && b.url)
+        }
+        saveConfigPatch({ reads })
+        kitLog('阅读配置已更新（工作台）')
+        return json(res, 200, { ok: true, reads })
+      }
+      if (url.pathname === '/api/reads/run' && req.method === 'POST') {
+        const body = await readBody(req)
+        const kind = body.kind === 'tieba' ? 'tieba' : 'novel'
+        return json(res, 200, kickReadsDetached(kind, '工作台手动'))
+      }
+      if (url.pathname === '/api/reads/login' && req.method === 'POST') {
+        const body = await readBody(req)
+        const kind = body.kind === 'novel' ? 'novel' : 'tieba'
+        try { return json(res, 200, { ok: true, ...startReaderLogin(kind) }) }
+        catch (e) { return json(res, 200, { ok: false, error: String(e?.message || e) }) }
       }
       if (url.pathname === '/api/memory' && req.method === 'GET') {
         const vm = await import('../videomem.mjs')

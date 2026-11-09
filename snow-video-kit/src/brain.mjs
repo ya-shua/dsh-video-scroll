@@ -128,3 +128,29 @@ export async function brainTest(cfg, override = {}) {
   if (j.usage) recordUsage('test', model, j.usage)
   return { ok: true, model, reply: reply.slice(0, 40), ms: Date.now() - t0, usage: j.usage || null }
 }
+
+/**
+ * 拉取该 baseUrl 下可用的模型列表（OpenAI 兼容的 GET /models）。
+ * override 里的 key/baseUrl 优先（页面上还没保存也能拉）。
+ * 不同网关的返回字段可能是 data 或 models，做兼容。
+ */
+export async function listModels(cfg, override = {}) {
+  const baseUrl = String(override.baseUrl || cfg.brain.baseUrl || '').trim().replace(/\/$/, '')
+  const key = String(override.key || getBrainKey() || '').trim()
+  if (!baseUrl) return { ok: false, error: 'baseURL 还没填' }
+  if (!key) return { ok: false, error: 'key 还没填（或先填好再获取）' }
+  let r
+  try {
+    r = await fetch(baseUrl + '/models', { headers: { authorization: 'Bearer ' + key } })
+  } catch (e) {
+    const code = e?.cause?.code || e?.code || ''
+    return { ok: false, error: `连不上（${code || e?.message}），这个接口可能不支持获取模型` }
+  }
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok) {
+    return { ok: false, error: `HTTP ${r.status}：${j?.error?.message || '该接口可能不支持 /models'}` }
+  }
+  const ids = (j.data || j.models || []).map((m) => (typeof m === 'string' ? m : m.id)).filter(Boolean)
+  if (!ids.length) return { ok: false, error: '没返回模型列表（该接口可能不支持 /models）' }
+  return { ok: true, models: [...new Set(ids)].sort() }
+}

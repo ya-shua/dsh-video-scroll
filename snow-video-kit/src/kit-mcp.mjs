@@ -6,6 +6,7 @@
  *                         command: <node>, args: [<本文件绝对路径>], toolCallTimeoutMs: 120000 }}]
  */
 import { kitLog } from './config.js'
+import { KIT_VERSION } from './version.mjs'
 import { TOOLS, callTool } from './tools.mjs'
 
 let buf = ''
@@ -22,7 +23,7 @@ process.stdin.on('data', (c) => {
     let msg; try { msg = JSON.parse(line) } catch { continue }
     if (msg.id === undefined) continue
     if (msg.method === 'initialize') {
-      reply(msg.id, { protocolVersion: '2024-11-05', capabilities: { tools: {} }, serverInfo: { name: 'snow-video-kit', version: '0.1.0' } })
+      reply(msg.id, { protocolVersion: '2024-11-05', capabilities: { tools: {} }, serverInfo: { name: 'snow-video-kit', version: KIT_VERSION } })
     } else if (msg.method === 'notifications/initialized') {
       /* 无需回应 */
     } else if (msg.method === 'tools/list') {
