@@ -76,19 +76,28 @@ export async function novelToc(bookUrl) {
 
 /** 章节页 → 正文文本（番茄把正文放在 muye-reader-content 容器里） */
 export async function novelRead(chapterUrl) {
-  const c = await readerPage(chapterUrl, { settleMs: 1800 })
-  const raw = await c.ev(`(function(){
-    var t = (document.querySelector('h1') || {}).textContent || '';
-    var ps = [];
-    document.querySelectorAll('.muye-reader-content p, .muye-reader-content').forEach(function(el){
-      var s = (el.textContent || '').trim();
-      if (s) ps.push(s.slice(0, 300));
-    });
-    return JSON.stringify({ title: t.trim().slice(0, 60), paras: ps.slice(0, 24) });
+  const c = await readerPage(chapterUrl, { settleMs: 1500 })
+  // ⭐ 番茄正文是前端渲染的：轮询到正文长度稳定（两次采样不再增长）才取，防"半页就抓"
+  const raw = await c.ev(`(async function(){
+    var title = '';
+    for (var s of ['.muye-reader-title', 'h1.title', 'h1', '.page-title']) {
+      var el = document.querySelector(s);
+      if (el && (el.textContent || '').trim()) { title = el.textContent.trim(); break; }
+    }
+    var container = document.querySelector('.muye-reader-content');
+    var last = -1, stable = 0;
+    for (var i = 0; i < 16; i++) {
+      container = container || document.querySelector('.muye-reader-content');
+      var len = container ? (container.innerText || '').length : 0;
+      if (len > 0 && len === last) { stable++; if (stable >= 2) break; } else stable = 0;
+      last = len;
+      await new Promise(function(r){ setTimeout(r, 500); });
+    }
+    var text = container ? (container.innerText || '').replace(/\\n{3,}/g, '\\n\\n').trim() : '';
+    return JSON.stringify({ title: title.slice(0, 60), len: text.length, text: text.slice(0, 8000) });
   })()`)
   const j = JSON.parse(raw)
-  const text = (j.paras || []).join('\n').slice(0, 6000)
-  return { title: j.title || '', text }
+  return { title: j.title || '', text: j.text || '', chars: j.len || 0 }
 }
 
 /* ────────────── 阅读值班轮（工具循环：她自己翻） ────────────── */
