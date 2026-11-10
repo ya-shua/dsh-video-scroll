@@ -95,7 +95,7 @@ export function kickRoundDetached(kind, reason = '她发起', { byAgent = true }
   if (!lim.ok) return { ok: false, reason: lim.reason }
   stateWrite(`round-${kind}.json`, { status: 'queued', queuedAt: Date.now(), reason })
   const child = spawn(process.execPath, [RUNNER, '--kind', kind, '--reason', reason], {
-    detached: true, stdio: 'ignore',
+    detached: true, stdio: 'ignore', windowsHide: true,
     env: { ...process.env, KIT_DIR },
   })
   child.unref()

@@ -24,7 +24,7 @@ export class McpStdio {
   start() {
     if (this.child) return
     this.child = spawn(this.command, this.args, {
-      cwd: this.cwd, env: { ...process.env, ...this.env }, stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: this.cwd, env: { ...process.env, ...this.env }, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
     })
     this.child.stdout.setEncoding('utf8')
     this.child.stdout.on('data', (c) => this._onData(c))

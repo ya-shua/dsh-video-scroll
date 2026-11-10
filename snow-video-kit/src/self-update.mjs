@@ -68,9 +68,9 @@ function verifyUserData(backupDir) {
 
 function killOld() {
   try {
-    const out = execSync('netstat -ano | findstr :8412 | findstr LISTENING').toString()
+    const out = execSync('netstat -ano | findstr :8412 | findstr LISTENING', { windowsHide: true }).toString()
     const pid = out.trim().split(/\r?\n/)[0].trim().split(/\s+/).pop()
-    if (pid) { execSync(`taskkill /F /PID ${pid}`); say('旧服务进程已停止（PID ' + pid + '）') }
+    if (pid) { execSync(`taskkill /F /PID ${pid}`, { windowsHide: true }); say('旧服务进程已停止（PID ' + pid + '）') }
   } catch { /* 没有 8412 监听就算了 */ }
 }
 
@@ -104,8 +104,8 @@ say('开始拉取更新（git fetch + merge --ff-only）…')
 try {
   const { fetchTarget } = await import('./updater.mjs')
   const { url, tok } = fetchTarget()
-  const out = execFileSync(GITBIN, [...GIT_UTF8, 'fetch', url || 'origin', 'main'], { cwd: KIT_DIR, timeout: 120000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: GIT_ENV })
-  execFileSync(GITBIN, [...GIT_UTF8, 'merge', '--ff-only', 'FETCH_HEAD'], { cwd: KIT_DIR, timeout: 60000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: GIT_ENV })
+  const out = execFileSync(GITBIN, [...GIT_UTF8, 'fetch', url || 'origin', 'main'], { cwd: KIT_DIR, timeout: 120000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: GIT_ENV, windowsHide: true })
+  execFileSync(GITBIN, [...GIT_UTF8, 'merge', '--ff-only', 'FETCH_HEAD'], { cwd: KIT_DIR, timeout: 60000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: GIT_ENV, windowsHide: true })
   say('fetch + merge 完成')
 } catch (e) {
   const reason = scrubSecret(String((e.stdout || '') + (e.stderr || '')).trim().slice(0, 300))
@@ -123,7 +123,7 @@ verifyUserData(backupDir)
 killOld()
 say('等待 1 秒后拉起新版本…')
 await new Promise((r) => setTimeout(r, 1200))
-spawn(process.execPath, ['src/index.js'], { cwd: KIT_DIR, detached: true, stdio: 'ignore' }).unref()
+spawn(process.execPath, ['src/index.js'], { cwd: KIT_DIR, detached: true, stdio: 'ignore', windowsHide: true }).unref()
 let up = false
 for (let i = 0; i < 15; i++) {
   await new Promise((r) => setTimeout(r, 1000))

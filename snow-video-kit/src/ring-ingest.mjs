@@ -39,7 +39,7 @@ function callRing(tool, args, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
     const server = ringServer()
     if (!server) return reject(new Error('找不到环形的心（mcp/server.mjs），设 RING_ROOT 指过去'))
-    const proc = spawn(process.execPath, [server], { stdio: ['pipe', 'pipe', 'ignore'] })
+    const proc = spawn(process.execPath, [server], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true })
     let buf = ''
     let done = false
     const finish = (fn, v) => {

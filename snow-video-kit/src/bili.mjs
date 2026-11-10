@@ -85,7 +85,7 @@ async function fetchBiliAudio(cfg, resolve, bvid) {
   try {
     execFileSync(python, ['-m', 'yt_dlp', '-f', 'bestaudio', '--no-playlist', '--no-warnings',
       '-o', path.join(tmpDir, `asr-${bvid}-%(ext)s`), `https://www.bilibili.com/video/${bvid}`],
-    { cwd: home, timeout: 180000, stdio: 'pipe', env: { ...process.env, PYTHONUTF8: '1' } })
+    { cwd: home, timeout: 180000, stdio: 'pipe', env: { ...process.env, PYTHONUTF8: '1' }, windowsHide: true })
   } catch (e) {
     return { ok: false, error: ('yt-dlp：' + String(e?.message || e)).slice(0, 120) }
   }

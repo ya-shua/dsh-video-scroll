@@ -15,7 +15,7 @@ const GIT = ['C:/Program Files/Git/cmd/git.exe', 'C:/Git/cmd/git.exe', 'D:/Git/c
 const GIT_UTF8 = ['-c', 'core.quotepath=false', '-c', 'i18n.logOutputEncoding=utf8']
 const git = (args, timeout = 30000) => {
   try {
-    return { ok: true, out: execFileSync(GIT, [...GIT_UTF8, ...args], { cwd: KIT_DIR, timeout, encoding: 'utf8', env: { ...process.env, LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' } }).trim() }
+    return { ok: true, out: execFileSync(GIT, [...GIT_UTF8, ...args], { cwd: KIT_DIR, timeout, encoding: 'utf8', windowsHide: true, env: { ...process.env, LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' } }).trim() }
   } catch (e) {
     const out = String(e.stdout || '').trim()
     return { ok: false, out, error: String(e.stderr || e.message || e).trim().slice(0, 300) }
@@ -48,7 +48,7 @@ export function scrubSecret(s) {
 }
 export function fetchTarget() {
   try {
-    const url = execFileSync(GIT, [...GIT_UTF8, 'remote', 'get-url', 'origin'], { cwd: KIT_DIR, timeout: 8000, encoding: 'utf8', env: { ...process.env, LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' } }).trim()
+    const url = execFileSync(GIT, [...GIT_UTF8, 'remote', 'get-url', 'origin'], { cwd: KIT_DIR, timeout: 8000, encoding: 'utf8', windowsHide: true, env: { ...process.env, LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' } }).trim()
     const m = /^https:\/\/github\.com\/([^/]+)\//.exec(url)
     const tok = fs.readFileSync(TOKEN_FILE, 'utf8').trim()
     if (m && tok && !/\s/.test(tok)) return { url: url.replace('https://github.com/', `https://${m[1]}:${tok}@github.com/`), tok }
@@ -101,6 +101,7 @@ export function runUpdate() {
   writeUpdateState({ kind: 'running', startedAt: Date.now() })
   const runner = path.join(KIT_DIR, 'src', 'self-update.mjs')
   const child = spawn(process.execPath, [runner], {
+    windowsHide: true,
     detached: true, stdio: 'ignore',
     env: { ...process.env, KIT_DIR },
   })
