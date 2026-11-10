@@ -64,6 +64,13 @@ const DEFAULTS = {
     tiebaPerRound: 3,       // 每轮最多推几帖
     novelEnabled: false,    // 📖 看小说：默认关
     novels: [],             // 追更书单 [{name, url}]（目录页链接）
+    // 👩‍👦 家长约束（父母视角，默认就是保护值；📖 页可调）：
+    novel: {
+      chaptersPerSession: 3,   // 一次最多读几章
+      chaptersPerDay: 6,       // 一天最多读几章
+      curfewStart: '23:00',    // 熄灯时段开始（这段不许看小说）
+      curfewEnd: '07:00',      // 熄灯时段结束
+    },
   },
   agent: {
     freeRun: false,          // ★ 她想刷就刷：开着 = 值班轮不受峰谷时间窗限制，她的触发随时放行

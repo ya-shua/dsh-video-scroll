@@ -342,6 +342,27 @@
         </div>
       </div>
       <div class="card" style="margin-top:14px">
+        <h3>📚 她的书架 <span class="muted" style="font-size:12px;font-weight:400">在读什么、读到哪、有没有新章</span></h3>
+        <div id="rd-shelf" style="display:flex;flex-direction:column;gap:8px"><span class="muted">刷新后显示</span></div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>👩‍👦 家长约束 <span class="muted" style="font-size:12px;font-weight:400">默认就是保护值，可调</span></h3>
+        <div class="setgroup">
+          <div class="formgrid">
+            <label>一次最多读几章</label>
+            <div class="ctrl"><input type="number" id="rd-nv-session" min="1" max="20" style="width:100px"></div>
+            <label>一天最多读几章</label>
+            <div class="ctrl"><input type="number" id="rd-nv-day" min="1" max="50" style="width:100px"></div>
+            <label>熄灯时段（这段时间不许看小说）</label>
+            <div class="ctrl" style="display:flex;gap:8px;align-items:center">
+              <input type="time" id="rd-nv-curfew-start" style="width:110px"> <span class="sub">到</span>
+              <input type="time" id="rd-nv-curfew-end" style="width:110px">
+            </div>
+            <span class="sub full">付费章节不绕（只读到试读片段，进度停在那一章）；这些约束她绕不过去</span>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px">
         <h3>📚 看小说（追更）</h3>
         <div class="setgroup">
           <div class="gtitle">小说设置</div>
@@ -1171,6 +1192,20 @@ async function loadReads() {
     books.forEach((b) => $('rd-novels').appendChild(rdNovelRow(b)))
     if (!books.length) $('rd-novels').appendChild(rdNovelRow())
     $('rd-badges').innerHTML = rdBadge('贴吧', d.tiebaState || {}) + rdBadge('小说', d.novelState || {})
+    // ⭐ 2026-11-11：书架 + 家长约束
+    const nl = r.novel || {}
+    if (document.activeElement !== $('rd-nv-session')) $('rd-nv-session').value = nl.chaptersPerSession ?? 3
+    if (document.activeElement !== $('rd-nv-day')) $('rd-nv-day').value = nl.chaptersPerDay ?? 6
+    if (document.activeElement !== $('rd-nv-curfew-start')) $('rd-nv-curfew-start').value = nl.curfewStart ?? '23:00'
+    if (document.activeElement !== $('rd-nv-curfew-end')) $('rd-nv-curfew-end').value = nl.curfewEnd ?? '07:00'
+    const shelf = d.shelf || []
+    $('rd-shelf').innerHTML = shelf.length ? shelf.map((b) =>
+      `<div style="display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px">
+        <span style="font-weight:600;min-width:120px">《${escAttr(b.name)}》</span>
+        <span class="muted" style="font-size:12px">${escAttr(b.进度)}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${b.有新章 ? 'var(--warn)' : 'var(--dim)'};font-size:12px">最新：${escAttr(b.最新 || '—')}${b.有新章 ? ' ⭐有新章' : '（已追平）'}</span>
+        <span class="muted" style="font-size:12px">${escAttr(b.最后阅读)}</span>
+      </div>`).join('') : '<span class="muted">书架是空的 —— 在下方追更书单里加书</span>'
   } catch (e) { toast('加载阅读配置失败：' + e.message) }
 }
 $('rd-novel-add').onclick = () => $('rd-novels').appendChild(rdNovelRow())
@@ -1183,6 +1218,12 @@ $('rd-save').onclick = async () => {
       tiebaPerRound: $('rd-tieba-perround').value,
       tiebaForums: $('rd-tieba-forums').value.split(','),
       novels: rdCollectNovels(),
+      novel: {
+        chaptersPerSession: $('rd-nv-session').value,
+        chaptersPerDay: $('rd-nv-day').value,
+        curfewStart: $('rd-nv-curfew-start').value,
+        curfewEnd: $('rd-nv-curfew-end').value,
+      },
     }
     const r = await api('/api/reads', { method: 'POST', body: JSON.stringify(body) })
     if (r.ok) { msg.textContent = '✓ 已保存 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }); toast('阅读设置已保存'); loadReads() }

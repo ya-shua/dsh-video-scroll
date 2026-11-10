@@ -19,7 +19,7 @@ import { getBrainKey, setBrainKey, brainConfigured, brainTest, listModels } from
 import * as biliEngine from '../bili.mjs'
 import * as douyinEngine from '../douyin.mjs'
 import { roundState, kickRoundDetached, latestReport, roundsToday } from '../rounds.mjs'
-import { readsState, kickReadsDetached, startReaderLogin } from '../reads.mjs'
+import { readsState, kickReadsDetached, startReaderLogin, novelShelf } from '../reads.mjs'
 import { TOOLS } from '../tools.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -256,7 +256,9 @@ export function startWeb(opts = {}) {
       }
       if (url.pathname === '/api/reads' && req.method === 'GET') {
         const c = loadConfig()
-        return json(res, 200, { reads: c.reads || {}, tiebaState: readsState('tieba'), novelState: readsState('novel') })
+        let shelf = []
+        try { shelf = await novelShelf(c) } catch { /* 拉不到就空书架 */ }
+        return json(res, 200, { reads: c.reads || {}, shelf, tiebaState: readsState('tieba'), novelState: readsState('novel') })
       }
       if (url.pathname === '/api/reads' && req.method === 'POST') {
         const body = await readBody(req)
@@ -270,6 +272,14 @@ export function startWeb(opts = {}) {
             .map((b) => ({ name: String(b.name || '').trim(), url: String(b.url || '').trim() }))
             .filter((b) => b.name && b.url)
         }
+        // ⭐ 2026-11-11：家长约束（她读小说的量与熄灯时段）
+        if (!reads.novel || typeof reads.novel !== 'object') reads.novel = {}
+        const nv = body.novel || {}
+        if (typeof nv.chaptersPerSession !== 'undefined') reads.novel.chaptersPerSession = Math.max(1, Math.min(Number(nv.chaptersPerSession) || 3, 20))
+        if (typeof nv.chaptersPerDay !== 'undefined') reads.novel.chaptersPerDay = Math.max(1, Math.min(Number(nv.chaptersPerDay) || 6, 50))
+        const tRe = /^([01]?\d|2[0-3]):[0-5]\d$/
+        if (typeof nv.curfewStart === 'string' && tRe.test(nv.curfewStart)) reads.novel.curfewStart = nv.curfewStart
+        if (typeof nv.curfewEnd === 'string' && tRe.test(nv.curfewEnd)) reads.novel.curfewEnd = nv.curfewEnd
         saveConfigPatch({ reads })
         kitLog('阅读配置已更新（工作台）')
         return json(res, 200, { ok: true, reads })
