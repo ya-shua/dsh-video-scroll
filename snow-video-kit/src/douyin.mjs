@@ -37,7 +37,7 @@ function buildEvidence(cfg, resolve, limit) {
   if (!exists(script)) throw new Error(`采集脚本不存在：${script}`)
   const env = { ...process.env, DOUYIN_HOME: home, PYTHONUTF8: '1' }
   try {
-    execFileSync(python, [script, '--limit', String(limit)], { cwd: home, env, timeout: 240000, stdio: 'pipe' })
+    execFileSync(python, [script, '--limit', String(limit)], { cwd: home, env, timeout: 240000, stdio: 'pipe', windowsHide: true })
   } catch (e) {
     throw new Error('证据采集失败（forward-pick.py）：' + String(e?.message || e).slice(0, 300))
   }
@@ -91,7 +91,7 @@ async function lookDeepDouyin(args) {
   let info
   try {
     const out = execFileSync(process.execPath, [script, '--aweme', vid], {
-      cwd: resolve.home, env: { ...process.env, DOUYIN_HOME: resolve.home }, timeout: 150000, encoding: 'utf8',
+      cwd: resolve.home, env: { ...process.env, DOUYIN_HOME: resolve.home }, timeout: 150000, encoding: 'utf8', windowsHide: true,
     })
     info = JSON.parse(String(out).trim().split(/\r?\n/).filter((l) => l.trim().startsWith('{')).pop() || '{}')
   } catch (e) {
@@ -123,7 +123,7 @@ async function execWatch({ name, args }) {
   if (fs.existsSync(apiScript)) {
     const env = { ...process.env, DOUYIN_HOME: WATCH_HOME, PYTHONUTF8: '1' }
     try {
-      const out = execFileSync(WATCH_PYTHON, [apiScript, vid], { cwd: WATCH_HOME, env, timeout: 60000, encoding: 'utf8' })
+      const out = execFileSync(WATCH_PYTHON, [apiScript, vid], { cwd: WATCH_HOME, env, timeout: 60000, encoding: 'utf8', windowsHide: true })
       const lines = String(out).split(/\r?\n/).filter((l) => /cid=|合计\s/.test(l))
       if (lines.some((l) => /cid=/.test(l))) return `【视频 ${vid} 的评论区 · 真实抓取】\n` + lines.join('\n').slice(0, 6000)
     } catch { /* 签名路失败 → 试 DOM 路 */ }
@@ -132,7 +132,7 @@ async function execWatch({ name, args }) {
   const domScript = path.join(WATCH_TOOLS_DIR, 'comment-read-dom.mjs')
   if (WATCH_NODE && fs.existsSync(domScript)) {
     try {
-      const out = execFileSync(WATCH_NODE, [domScript, '--aweme', vid], { cwd: WATCH_HOME, env: { ...process.env, DOUYIN_HOME: WATCH_HOME, PYTHONUTF8: '1' }, timeout: 150000, encoding: 'utf8' })
+      const out = execFileSync(WATCH_NODE, [domScript, '--aweme', vid], { cwd: WATCH_HOME, env: { ...process.env, DOUYIN_HOME: WATCH_HOME, PYTHONUTF8: '1' }, timeout: 150000, encoding: 'utf8', windowsHide: true })
       const j = JSON.parse(String(out).split(/\r?\n/).filter((l) => l.trim().startsWith('{')).pop() || '{}')
       if (j.ok && (j.items || []).length) {
         const rows = j.items.map((x) => `- ${x.nick || '(匿名)'}：${String(x.text || '').replace(/\n/g, ' ').slice(0, 100)}${x.mine ? ' （我发的）' : ''}`)
