@@ -88,6 +88,7 @@
   .pf { --pf:#4f7cff; --pf-soft:rgba(79,124,255,.13); }
   #pf-bili { --pf:#fb7299; --pf-soft:rgba(251,114,153,.12); }
   #pf-douyin { --pf:#25f4ee; --pf-soft:rgba(37,244,238,.09); }
+  #pf-reading { --pf:#f0b429; --pf-soft:rgba(240,180,41,.09); }
   .pf-hero { display:flex; gap:18px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
   .pf-ring { position:relative; width:86px; height:86px; flex:0 0 auto; }
   .pf-ring svg { transform:rotate(-90deg); display:block; }
@@ -400,65 +401,74 @@
       </div>
     </div>
     <!-- ═══ 阅读：看小说 / 看贴吧 ═══ -->
+    <!-- ═══ 阅读 · 频道驾驶舱（2026-11-12：书卷琥珀 + 抽屉页签）═══ -->
     <div id="view-reading" class="view" style="display:none">
-      <h2>📖 阅读（看小说 / 看贴吧）</h2>
-      <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <button class="act" id="rd-run-tieba" type="button">▶ 看贴吧一轮</button>
-        <button class="act" id="rd-run-novel" type="button">▶ 看小说一轮</button>
-        <button class="ghost" id="rd-refresh" type="button">↻ 刷新</button>
-        <span id="rd-badges" style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap"></span>
-      </div>
-      <div class="card" style="margin-top:14px">
-        <h3>💬 看贴吧</h3>
-        <div class="setgroup">
-          <div class="gtitle">贴吧设置</div>
-          <div class="formgrid">
-            <label>启用看贴吧</label>
-            <div class="ctrl"><input type="checkbox" id="rd-tieba-enabled"> <span class="sub">开启后值班线才会跑</span></div>
-            <label>每轮最多推几帖</label>
-            <div class="ctrl"><input type="number" id="rd-tieba-perround" min="1" max="20" style="width:110px"></div>
-            <label class="full">关注的吧（逗号分隔，如：原神,崩坏星穹铁道）</label>
-            <div class="full"><input class="wide" id="rd-tieba-forums" style="margin:0"></div>
-            <div class="full"><button class="ghost" id="rd-tieba-login" type="button">🔑 贴吧登录（第一次需要）</button>
-              <span class="sub">登录一次 cookie 就记住，之后自动读取</span></div>
+      <div class="pf" id="pf-reading">
+        <div class="pf-hero">
+          <div class="pf-head-main">
+            <div class="pf-name">📖 阅读 <span class="pf-chip">看小说 · 看贴吧</span></div>
+            <div class="pf-statusline" id="rd-badges"></div>
+          </div>
+          <div class="pf-actions">
+            <button class="pf-primary" id="rd-run-tieba" type="button">💬 看贴吧一轮</button>
+            <button class="pf-primary" id="rd-run-novel" type="button">📖 看小说一轮</button>
+            <button class="pf-ghost" id="rd-refresh" type="button" data-tooltip="重新读状态">↻</button>
           </div>
         </div>
-      </div>
-      <div class="card" style="margin-top:14px">
-        <h3>📚 她的书架 <span class="muted" style="font-size:12px;font-weight:400">在读什么、读到哪、有没有新章</span></h3>
-        <div id="rd-shelf" style="display:flex;flex-direction:column;gap:8px"><span class="muted">刷新后显示</span></div>
-      </div>
-      <div class="card" style="margin-top:14px">
-        <h3>👩‍👦 家长约束 <span class="muted" style="font-size:12px;font-weight:400">默认就是保护值，可调</span></h3>
-        <div class="setgroup">
-          <div class="formgrid">
-            <label>一次最多读几章</label>
-            <div class="ctrl"><input type="number" id="rd-nv-session" min="1" max="20" style="width:100px"></div>
-            <label>一天最多读几章</label>
-            <div class="ctrl"><input type="number" id="rd-nv-day" min="1" max="50" style="width:100px"></div>
-            <label>熄灯时段（这段时间不许看小说）</label>
-            <div class="ctrl" style="display:flex;gap:8px;align-items:center">
-              <input type="time" id="rd-nv-curfew-start" style="width:110px"> <span class="sub">到</span>
-              <input type="time" id="rd-nv-curfew-end" style="width:110px">
+        <div class="pf-tabs" role="tablist" aria-label="阅读设置分组">
+          <button class="pf-tab on" data-panel="tieba" role="tab" aria-selected="true" type="button">💬 看贴吧</button>
+          <button class="pf-tab" data-panel="novel" role="tab" aria-selected="false" type="button">📚 看小说</button>
+        </div>
+        <div class="pf-panelwrap">
+          <div class="pf-panel" data-panel="tieba">
+            <div class="setgroup">
+              <div class="gtitle">贴吧设置</div>
+              <div class="formgrid">
+                <label>启用看贴吧</label>
+                <div class="ctrl"><input type="checkbox" id="rd-tieba-enabled"> <span class="sub">开启后值班线才会跑</span></div>
+                <label>每轮最多推几帖</label>
+                <div class="ctrl"><input type="number" id="rd-tieba-perround" min="1" max="20" style="width:110px"></div>
+                <label class="full">关注的吧（逗号分隔，如：原神,崩坏星穹铁道）</label>
+                <div class="full"><input class="wide" id="rd-tieba-forums" style="margin:0"></div>
+                <div class="full"><button class="ghost" id="rd-tieba-login" type="button">🔑 贴吧登录（第一次需要）</button>
+                  <span class="sub">登录一次 cookie 就记住，之后自动读取</span></div>
+              </div>
             </div>
-            <span class="sub full">付费章节不绕（只读到试读片段，进度停在那一章）；这些约束她绕不过去</span>
           </div>
-        </div>
-      </div>
-      <div class="card" style="margin-top:14px">
-        <h3>📚 看小说（追更）</h3>
-        <div class="setgroup">
-          <div class="gtitle">小说设置</div>
-          <div class="formgrid">
-            <label>启用看小说</label>
-            <div class="ctrl"><input type="checkbox" id="rd-novel-enabled"> <span class="sub">开启后值班线才会跑</span></div>
-            <label class="full">追更书单（书名 + 目录页链接，可加多本）</label>
-            <div class="full" id="rd-novels" style="display:flex;flex-direction:column;gap:6px"></div>
-            <div class="full"><button class="ghost" id="rd-novel-add" type="button" style="font-size:12px;padding:3px 10px">＋ 加一本书</button></div>
-            <div class="full"><button class="ghost" id="rd-novel-login" type="button">🔑 番茄登录（看需要）</button></div>
+          <div class="pf-panel" data-panel="novel" hidden>
+            <div class="setgroup">
+              <div class="gtitle">小说设置</div>
+              <div class="formgrid">
+                <label>启用看小说</label>
+                <div class="ctrl"><input type="checkbox" id="rd-novel-enabled"> <span class="sub">开启后值班线才会跑</span></div>
+                <label class="full">追更书单（书名 + 目录页链接，可加多本）</label>
+                <div class="full" id="rd-novels" style="display:flex;flex-direction:column;gap:6px"></div>
+                <div class="full"><button class="ghost" id="rd-novel-add" type="button" style="font-size:12px;padding:3px 10px">＋ 加一本书</button></div>
+                <div class="full"><button class="ghost" id="rd-novel-login" type="button">🔑 番茄登录（看需要）</button></div>
+              </div>
+            </div>
+            <div class="setgroup">
+              <div class="gtitle">👩‍👦 家长约束 <span class="muted" style="font-size:12px;font-weight:400">默认就是保护值，可调</span></div>
+              <div class="formgrid">
+                <label>一次最多读几章</label>
+                <div class="ctrl"><input type="number" id="rd-nv-session" min="1" max="20" style="width:100px"></div>
+                <label>一天最多读几章</label>
+                <div class="ctrl"><input type="number" id="rd-nv-day" min="1" max="50" style="width:100px"></div>
+                <label>熄灯时段（这段时间不许看小说）</label>
+                <div class="ctrl" style="display:flex;gap:8px;align-items:center">
+                  <input type="time" id="rd-nv-curfew-start" style="width:110px"> <span class="sub">到</span>
+                  <input type="time" id="rd-nv-curfew-end" style="width:110px">
+                </div>
+                <span class="sub full">付费章节不绕（只读到试读片段，进度停在那一章）；这些约束她绕不过去</span>
+              </div>
+            </div>
+            <div class="setgroup">
+              <div class="gtitle">📚 她的书架 <span class="muted" style="font-size:12px;font-weight:400">在读什么、读到哪、有没有新章</span></div>
+              <div id="rd-shelf" style="display:flex;flex-direction:column;gap:8px"><span class="muted">刷新后显示</span></div>
+            </div>
           </div>
+          <div class="pf-savebar"><button class="pf-btn-save" id="rd-save" type="button">💾 保存设置</button> <span class="muted" id="rd-msg"></span></div>
         </div>
-        <div class="setbar"><button class="act" id="rd-save" type="button">💾 保存设置</button> <span class="muted" id="rd-msg"></span></div>
       </div>
     </div>
     <!-- ═══ 日报（B站+抖音汇总，一页查看，不再弹窗）═══ -->
@@ -1046,7 +1056,7 @@ function pfTabs(rootId) {
     root.querySelectorAll('.pf-panel').forEach((p) => { p.hidden = p.dataset.panel !== t.dataset.panel })
   })
 }
-pfTabs('pf-bili'); pfTabs('pf-douyin')
+pfTabs('pf-bili'); pfTabs('pf-douyin'); pfTabs('pf-reading')
 
 // ── B站 扫码登录（凭证补录入口 · login/start + login/poll）──
 let nbKey = null, nbPollT = null
