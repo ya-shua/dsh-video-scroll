@@ -84,6 +84,36 @@
   .switch input:checked + .knob::after { left:18px; background:#fff; }
   .agentin { width:90px; padding:6px 10px; border:1px solid var(--line); border-radius:8px; background:#101725; color:var(--ink); font:inherit; }
   .agentlab { font-size:11.5px; color:var(--dim); margin-bottom:3px; }
+  /* ═══ 频道驾驶舱（B站/抖音 原生页 v2 · 2026-11-12 重设计：频道色 + 进度环 + 抽屉设置）═══ */
+  .pf { --pf:#4f7cff; --pf-soft:rgba(79,124,255,.13); }
+  #pf-bili { --pf:#fb7299; --pf-soft:rgba(251,114,153,.12); }
+  #pf-douyin { --pf:#25f4ee; --pf-soft:rgba(37,244,238,.09); }
+  .pf-hero { display:flex; gap:18px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  .pf-ring { position:relative; width:86px; height:86px; flex:0 0 auto; }
+  .pf-ring svg { transform:rotate(-90deg); display:block; }
+  .pf-ring .num { position:absolute; inset:0; display:grid; place-items:center; text-align:center; font-size:19px; font-weight:700; line-height:1.1; }
+  .pf-ring .num small { display:block; font-size:10px; color:var(--dim); font-weight:400; }
+  .pf-head-main { min-width:200px; }
+  .pf-name { font-size:19px; font-weight:700; letter-spacing:.5px; display:flex; align-items:center; gap:8px; }
+  .pf-chip { font-size:10.5px; font-weight:400; color:var(--dim); border:1px solid var(--line); border-radius:999px; padding:1px 9px; }
+  .pf-statusline { display:flex; gap:8px; flex-wrap:wrap; margin-top:7px; }
+  .pf-actions { margin-left:auto; display:flex; gap:8px; align-items:center; }
+  .pf-primary { background:var(--pf); color:#0d1220; border:0; border-radius:10px; padding:10px 18px; font:inherit; font-weight:600; cursor:pointer; }
+  .pf-primary:hover { filter:brightness(1.08); }
+  .pf-primary:disabled { opacity:.55; cursor:default; }
+  .pf-ghost { background:transparent; color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:8px 12px; font:inherit; cursor:pointer; }
+  .pf-ghost:hover { border-color:var(--pf); }
+  .pf-login { display:none; border:1px dashed var(--pf); border-radius:12px; padding:14px 16px; margin-bottom:14px; background:var(--pf-soft); }
+  .pf-tabs { display:flex; gap:2px; flex-wrap:wrap; margin-top:14px; }
+  .pf-tab { background:transparent; border:0; color:var(--dim); font:inherit; padding:7px 15px; cursor:pointer; border-radius:9px 9px 0 0; border-bottom:2px solid transparent; }
+  .pf-tab:hover { color:var(--ink); }
+  .pf-tab.on { color:var(--pf); border-bottom-color:var(--pf); font-weight:600; }
+  .pf-panelwrap { border:1px solid var(--line); border-radius:0 12px 12px 12px; padding:16px 16px 6px; background:var(--card); }
+  .pf-savebar { display:flex; gap:10px; align-items:center; margin-top:12px; }
+  .pf-btn-save { background:var(--pf); color:#0d1220; border:0; border-radius:10px; padding:9px 18px; font:inherit; font-weight:600; cursor:pointer; }
+  .pf-btn-save:disabled { opacity:.55; }
+  .pf-badge { display:inline-flex; align-items:center; gap:5px; background:var(--card2); border:1px solid var(--line); border-radius:999px; padding:3px 11px; font-size:11.5px; color:var(--dim); }
+  .pf-badge .dot { margin:0; }
   /* ⭐ 2026-11-07（新用户视角体检）：原生页输入框原来是浏览器默认白底黑字，与深色主题脱节 —— 统一深色 */
   input:not([type=checkbox]):not([type=radio]):not(.wide):not(.agentin),
   textarea:not(.wide), select:not(.wide) { background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:6px 10px; font:inherit; }
@@ -160,156 +190,223 @@
   </div>
   <main>
     <!-- ═══ 刷B站（原生页 · 2026-11-07 拆掉原版窗口后新建；按钮按使用频率排序）═══ -->
+    <!-- ═══ B站 · 频道驾驶舱（2026-11-12 重设计：频道粉 + 进度环 + 抽屉设置）═══ -->
     <div id="view-bili" class="view" style="display:none">
-      <h2>📺 B站</h2>
-      <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <button class="act" id="nb-run">▶ 现在跑一轮</button>
-        <button class="ghost" id="nb-refresh">↻ 刷新</button>
-        <span id="nb-badges" style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap"></span>
-      </div>
-      <div class="card" style="margin-top:14px">
-        <h3>⚙️ 设置</h3>
-        <div class="setgroup">
-          <div class="gtitle">⏰ 值班</div>
-          <div class="formgrid">
-            <label>峰谷时段自动刷</label>
-            <div class="ctrl"><input type="checkbox" id="nb-peak"> <span class="sub">开启后到点自动跑一轮</span></div>
-            <label>每天最多挑几条</label>
-            <div class="ctrl"><input type="number" id="nb-perday" min="0" max="50" style="width:110px"></div>
-            <label class="full">关注关键词（一行一个）</label>
-            <div class="full"><textarea id="nb-kws" rows="4"></textarea></div>
+      <div class="pf" id="pf-bili">
+        <div class="pf-hero">
+          <div class="pf-ring">
+            <svg width="86" height="86" viewBox="0 0 86 86" role="img" aria-label="今日挑取进度">
+              <circle cx="43" cy="43" r="36" fill="none" stroke="var(--line)" stroke-width="7"/>
+              <circle id="nb-ring" cx="43" cy="43" r="36" fill="none" stroke="var(--pf)" stroke-width="7" stroke-linecap="round" stroke-dasharray="226.2" stroke-dashoffset="226.2"/>
+            </svg>
+            <div class="num"><span id="nb-picked">0</span><small id="nb-quota">/ — 今日</small></div>
+          </div>
+          <div class="pf-head-main">
+            <div class="pf-name">📺 B站 <span class="pf-chip" id="nb-ver">频道</span></div>
+            <div class="pf-statusline" id="nb-badges"></div>
+          </div>
+          <div class="pf-actions">
+            <button class="pf-primary" id="nb-run">▶ 现在跑一轮</button>
+            <button class="pf-ghost" id="nb-refresh" data-tooltip="重新读状态">↻</button>
+            <button class="pf-ghost" id="nb-login-btn" data-tooltip="扫码登录B站">🔑</button>
           </div>
         </div>
-        <div class="setgroup">
-          <div class="gtitle">📨 投递</div>
-          <div class="formgrid">
-            <label>投递方式</label>
-            <div class="ctrl">
-              <select id="nb-dmmode">
-                <option value="only">只发私信（最不打扰）</option>
-                <option value="both">私信 + 公开评论</option>
-                <option value="off">都不发</option>
-              </select>
+        <div class="pf-login" id="nb-login-box">
+          <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+            <img id="nb-qr" alt="二维码" style="width:150px;height:150px;border-radius:10px;background:#fff;padding:6px;box-sizing:border-box">
+            <div style="flex:1;min-width:220px">
+              <div style="font-weight:600;margin-bottom:4px">扫码登录 <span id="nb-login-state" class="muted" style="font-weight:400;font-size:12px"></span></div>
+              <div class="muted" style="font-size:12.5px;line-height:1.7">手机B站 → 扫一扫 → 手机上确认。成功后这里会变绿；二维码三分钟没扫就点「重新出码」。</div>
+              <button class="ghost" id="nb-login-again" style="margin-top:8px">重新出码</button>
             </div>
-            <label>私信双向</label>
-            <div class="ctrl"><input type="checkbox" id="nb-dmwatch"> <span class="sub">收到私信会回一句</span></div>
           </div>
         </div>
-        <div class="setgroup">
-          <div class="gtitle">💬 评论</div>
-          <div class="formgrid">
-            <label>自动评论</label>
-            <div class="ctrl"><input type="checkbox" id="nb-autocomment"></div>
-            <label>每轮最多几条</label>
-            <div class="ctrl"><input type="number" id="nb-cpr" min="0" max="20" style="width:110px"></div>
-            <label>@你的昵称</label>
-            <div class="ctrl"><input id="nb-mention" style="width:210px"></div>
-            <label>有人回复就回</label>
-            <div class="ctrl"><input type="checkbox" id="nb-replyback"></div>
-            <div class="full"><button class="ghost" id="nb-verify">🔍 复核评论 —— 去 B站核一遍真的发出来了</button></div>
-          </div>
+        <div class="pf-tabs" role="tablist" aria-label="B站设置分组">
+          <button class="pf-tab on" data-panel="run" role="tab" aria-selected="true" type="button">运行</button>
+          <button class="pf-tab" data-panel="send" role="tab" aria-selected="false" type="button">投递</button>
+          <button class="pf-tab" data-panel="comment" role="tab" aria-selected="false" type="button">评论</button>
+          <button class="pf-tab" data-panel="heart" role="tab" aria-selected="false" type="button">互动</button>
         </div>
-        <div class="setgroup">
-          <div class="gtitle">❤️ 互动</div>
-          <div class="formgrid">
-            <label>看完点赞</label>
-            <div class="ctrl"><input type="checkbox" id="nb-autolike"> <span class="sub">挑进日报的视频各赞一次</span></div>
-            <label>自动收藏到</label>
-            <div class="ctrl"><select id="nb-favfav"><option value="0">选收藏夹…</option></select></div>
-            <div class="full sub">每轮结束自动把挑中的收进所选收藏夹（原生能力，选了夹子就算开启）。</div>
+        <div class="pf-panelwrap">
+          <div class="pf-panel" data-panel="run">
+            <div class="setgroup">
+              <div class="gtitle">⏰ 值班</div>
+              <div class="formgrid">
+                <label>峰谷时段自动刷</label>
+                <div class="ctrl"><input type="checkbox" id="nb-peak"> <span class="sub">开启后到点自动跑一轮</span></div>
+                <label>每天最多挑几条</label>
+                <div class="ctrl"><input type="number" id="nb-perday" min="0" max="50" style="width:110px"></div>
+                <label class="full">关注关键词（一行一个）</label>
+                <div class="full"><textarea id="nb-kws" rows="4"></textarea></div>
+              </div>
+            </div>
           </div>
+          <div class="pf-panel" data-panel="send" hidden>
+            <div class="setgroup">
+              <div class="gtitle">📨 投递</div>
+              <div class="formgrid">
+                <label>投递方式</label>
+                <div class="ctrl">
+                  <select id="nb-dmmode">
+                    <option value="only">只发私信（最不打扰）</option>
+                    <option value="both">私信 + 公开评论</option>
+                    <option value="off">都不发</option>
+                  </select>
+                </div>
+                <label>私信双向</label>
+                <div class="ctrl"><input type="checkbox" id="nb-dmwatch"> <span class="sub">收到私信会回一句</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="pf-panel" data-panel="comment" hidden>
+            <div class="setgroup">
+              <div class="gtitle">💬 评论</div>
+              <div class="formgrid">
+                <label>自动评论</label>
+                <div class="ctrl"><input type="checkbox" id="nb-autocomment"></div>
+                <label>每轮最多几条</label>
+                <div class="ctrl"><input type="number" id="nb-cpr" min="0" max="20" style="width:110px"></div>
+                <label>@你的昵称</label>
+                <div class="ctrl"><input id="nb-mention" style="width:210px"></div>
+                <label>有人回复就回</label>
+                <div class="ctrl"><input type="checkbox" id="nb-replyback"></div>
+                <div class="full"><button class="ghost" id="nb-verify">🔍 复核评论 —— 去 B站核一遍真的发出来了</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="pf-panel" data-panel="heart" hidden>
+            <div class="setgroup">
+              <div class="gtitle">❤️ 互动</div>
+              <div class="formgrid">
+                <label>看完点赞</label>
+                <div class="ctrl"><input type="checkbox" id="nb-autolike"> <span class="sub">挑进日报的视频各赞一次</span></div>
+                <label>自动收藏到</label>
+                <div class="ctrl"><select id="nb-favfav"><option value="0">选收藏夹…</option></select></div>
+                <div class="full sub">每轮结束自动把挑中的收进所选收藏夹（原生能力，选了夹子就算开启）。</div>
+              </div>
+            </div>
+          </div>
+          <div class="pf-savebar"><button class="pf-btn-save" id="nb-save">💾 保存设置</button> <span class="muted" id="nb-msg"></span></div>
         </div>
-        <div class="setbar"><button class="act" id="nb-save">💾 保存设置</button> <span class="muted" id="nb-msg"></span></div>
       </div>
     </div>
 
-    <!-- ═══ 刷抖音（原生页 · 2026-11-07）═══ -->
+    <!-- ═══ 抖音 · 频道驾驶舱（2026-11-12 重设计：频道青 + 进度环 + 抽屉设置）═══ -->
     <div id="view-douyin" class="view" style="display:none">
-      <h2>🎵 抖音</h2>
-      <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <button class="act" id="dy-run">▶ 立即跑一轮</button>
-        <button class="ghost" id="dy-refresh">↻ 刷新</button>
-        <span id="dy-badges" style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap"></span>
-      </div>
-      <div class="card" style="margin-top:14px">
-        <h3>⚙️ 设置</h3>
-        <div class="setgroup">
-          <div class="gtitle">⏰ 值班</div>
-          <div class="formgrid">
-            <label>自动按时段刷（总闸）</label>
-            <div class="ctrl"><input type="checkbox" id="dy-autoen"></div>
-            <label>峰谷时段</label>
-            <div class="ctrl"><input type="checkbox" id="dy-peak"> <span class="sub">工作日午间+晚间，周末全天算谷</span></div>
-            <label>每天挑几条</label>
-            <div class="ctrl"><input type="number" id="dy-perday" min="0" style="width:110px"></div>
-            <label class="full">星期几跑</label>
-            <div class="full" id="dy-days" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-            <label class="full">自定义时段（和峰谷同时生效）</label>
-            <div class="full" id="dy-windows" style="display:flex;flex-direction:column;gap:6px"></div>
-            <div class="full"><button class="ghost" id="dy-win-add" style="font-size:12px;padding:3px 10px">＋ 加一个时段</button></div>
+      <div class="pf" id="pf-douyin">
+        <div class="pf-hero">
+          <div class="pf-ring">
+            <svg width="86" height="86" viewBox="0 0 86 86" role="img" aria-label="今日进度">
+              <circle cx="43" cy="43" r="36" fill="none" stroke="var(--line)" stroke-width="7"/>
+              <circle id="dy-ring" cx="43" cy="43" r="36" fill="none" stroke="var(--pf)" stroke-width="7" stroke-linecap="round" stroke-dasharray="226.2" stroke-dashoffset="226.2"/>
+            </svg>
+            <div class="num"><span id="dy-picked">0</span><small id="dy-quota">/ — 今日</small></div>
+          </div>
+          <div class="pf-head-main">
+            <div class="pf-name">🎵 抖音 <span class="pf-chip" id="dy-ver">频道</span></div>
+            <div class="pf-statusline" id="dy-badges"></div>
+          </div>
+          <div class="pf-actions">
+            <button class="pf-primary" id="dy-run">▶ 立即跑一轮</button>
+            <button class="pf-ghost" id="dy-refresh" data-tooltip="重新读状态">↻</button>
           </div>
         </div>
-        <div class="setgroup">
-          <div class="gtitle">📨 发送</div>
-          <div class="formgrid">
-            <label>自动发送</label>
-            <div class="ctrl"><input type="checkbox" id="dy-autosend"> <span class="sub">挑到值得看的就发给名单里每个人</span></div>
-            <label class="full">私信对象名单（多人 = 每人各发一套卡片+文字）</label>
-            <div class="full" id="dy-dmpeers" style="display:flex;flex-direction:column;gap:6px"></div>
-            <div class="full"><button class="ghost" id="dy-pick-dm" style="font-size:12px;padding:3px 10px">👥 从会话里挑人</button></div>
-            <div class="full"><details class="muted" style="font-size:11.5px"><summary>兜底收件人（名单为空时才用，一般不用手填）</summary>
-              <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">昵称 <input id="dy-dmto" style="flex:1;min-width:100px"> sec_uid <input id="dy-dmtoid" style="flex:1;min-width:120px"></div>
-            </details></div>
-          </div>
+        <div class="pf-tabs" role="tablist" aria-label="抖音设置分组">
+          <button class="pf-tab on" data-panel="run" role="tab" aria-selected="true" type="button">运行</button>
+          <button class="pf-tab" data-panel="send" role="tab" aria-selected="false" type="button">发送</button>
+          <button class="pf-tab" data-panel="comment" role="tab" aria-selected="false" type="button">评论</button>
+          <button class="pf-tab" data-panel="heart" role="tab" aria-selected="false" type="button">互动</button>
+          <button class="pf-tab" data-panel="misc" role="tab" aria-selected="false" type="button">其他</button>
         </div>
-        <div class="setgroup">
-          <div class="gtitle">💬 评论</div>
-          <div class="formgrid">
-            <label>每轮自动评论</label>
-            <div class="ctrl"><input type="checkbox" id="dy-autocomment"></div>
-            <label>每轮评论几条</label>
-            <div class="ctrl"><input type="number" id="dy-cpr" min="0" style="width:110px"></div>
-            <label>评论区 @ 提醒</label>
-            <div class="ctrl"><input type="checkbox" id="dy-atme"> <span class="sub">挑到好东西时在评论区 @ 这些人</span></div>
-            <label class="full">@ 名单（从会话里挑，点选即可）</label>
-            <div class="full" id="dy-atpeers" style="display:flex;flex-direction:column;gap:6px"></div>
-            <div class="full"><button class="ghost" id="dy-pick-at" style="font-size:12px;padding:3px 10px">👥 从会话里挑 @ 对象</button></div>
-          </div>
-        </div>
-        <div class="setgroup">
-          <div class="gtitle">❤️ 互动</div>
-          <div class="formgrid">
-            <label>看完点赞</label>
-            <div class="ctrl"><input type="checkbox" id="dy-interact-like"> <span class="sub">挑进日报的视频各赞一次</span></div>
-            <label>看完收藏</label>
-            <div class="ctrl"><input type="checkbox" id="dy-interact-fav"> <span class="sub">挑进日报的视频收进夹子</span></div>
-          </div>
-        </div>
-        <div class="setgroup">
-          <div class="gtitle">🛎 其他</div>
-          <div class="formgrid">
-            <label>聊天模式</label>
-            <div class="ctrl"><input type="checkbox" id="dy-chatwatch"> <span class="sub">定时检查新私信</span></div>
-            <label>检查间隔（秒）</label>
-            <div class="ctrl"><input type="number" id="dy-cwsec" min="10" max="300" style="width:110px"> <span class="sub">10–300</span></div>
-            <label>新消息交给</label>
-            <div class="ctrl">
-              <select id="dy-cwtarget">
-                <option value="lead">前台会话</option>
-                <option value="duty">值班小鱼</option>
-              </select>
-            </div>
-            <label>日报详细程度</label>
-            <div class="ctrl">
-              <select id="dy-rl">
-                <option value="full">满版（每条一两行）</option>
-                <option value="brief">简版（只记挑了哪些）</option>
-                <option value="off">关（只跑不写）</option>
-              </select>
+        <div class="pf-panelwrap">
+          <div class="pf-panel" data-panel="run">
+            <div class="setgroup">
+              <div class="gtitle">⏰ 值班</div>
+              <div class="formgrid">
+                <label>自动按时段刷（总闸）</label>
+                <div class="ctrl"><input type="checkbox" id="dy-autoen"></div>
+                <label>峰谷时段</label>
+                <div class="ctrl"><input type="checkbox" id="dy-peak"> <span class="sub">工作日午间+晚间，周末全天算谷</span></div>
+                <label>每天挑几条</label>
+                <div class="ctrl"><input type="number" id="dy-perday" min="0" style="width:110px"></div>
+                <label class="full">星期几跑</label>
+                <div class="full" id="dy-days" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+                <label class="full">自定义时段（和峰谷同时生效）</label>
+                <div class="full" id="dy-windows" style="display:flex;flex-direction:column;gap:6px"></div>
+                <div class="full"><button class="ghost" id="dy-win-add" style="font-size:12px;padding:3px 10px">＋ 加一个时段</button></div>
+              </div>
             </div>
           </div>
+          <div class="pf-panel" data-panel="send" hidden>
+            <div class="setgroup">
+              <div class="gtitle">📨 发送</div>
+              <div class="formgrid">
+                <label>自动发送</label>
+                <div class="ctrl"><input type="checkbox" id="dy-autosend"> <span class="sub">挑到值得看的就发给名单里每个人</span></div>
+                <label class="full">私信对象名单（多人 = 每人各发一套卡片+文字）</label>
+                <div class="full" id="dy-dmpeers" style="display:flex;flex-direction:column;gap:6px"></div>
+                <div class="full"><button class="ghost" id="dy-pick-dm" style="font-size:12px;padding:3px 10px">👥 从会话里挑人</button></div>
+                <div class="full"><details class="muted" style="font-size:11.5px"><summary>兜底收件人（名单为空时才用，一般不用手填）</summary>
+                  <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">昵称 <input id="dy-dmto" style="flex:1;min-width:100px"> sec_uid <input id="dy-dmtoid" style="flex:1;min-width:120px"></div>
+                </details></div>
+              </div>
+            </div>
+          </div>
+          <div class="pf-panel" data-panel="comment" hidden>
+            <div class="setgroup">
+              <div class="gtitle">💬 评论</div>
+              <div class="formgrid">
+                <label>每轮自动评论</label>
+                <div class="ctrl"><input type="checkbox" id="dy-autocomment"></div>
+                <label>每轮评论几条</label>
+                <div class="ctrl"><input type="number" id="dy-cpr" min="0" style="width:110px"></div>
+                <label>评论区 @ 提醒</label>
+                <div class="ctrl"><input type="checkbox" id="dy-atme"> <span class="sub">挑到好东西时在评论区 @ 这些人</span></div>
+                <label class="full">@ 名单（从会话里挑，点选即可）</label>
+                <div class="full" id="dy-atpeers" style="display:flex;flex-direction:column;gap:6px"></div>
+                <div class="full"><button class="ghost" id="dy-pick-at" style="font-size:12px;padding:3px 10px">👥 从会话里挑 @ 对象</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="pf-panel" data-panel="heart" hidden>
+            <div class="setgroup">
+              <div class="gtitle">❤️ 互动</div>
+              <div class="formgrid">
+                <label>看完点赞</label>
+                <div class="ctrl"><input type="checkbox" id="dy-interact-like"> <span class="sub">挑进日报的视频各赞一次</span></div>
+                <label>看完收藏</label>
+                <div class="ctrl"><input type="checkbox" id="dy-interact-fav"> <span class="sub">挑进日报的视频收进夹子</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="pf-panel" data-panel="misc" hidden>
+            <div class="setgroup">
+              <div class="gtitle">🛎 其他</div>
+              <div class="formgrid">
+                <label>聊天模式</label>
+                <div class="ctrl"><input type="checkbox" id="dy-chatwatch"> <span class="sub">定时检查新私信</span></div>
+                <label>检查间隔（秒）</label>
+                <div class="ctrl"><input type="number" id="dy-cwsec" min="10" max="300" style="width:110px"> <span class="sub">10–300</span></div>
+                <label>新消息交给</label>
+                <div class="ctrl">
+                  <select id="dy-cwtarget">
+                    <option value="lead">前台会话</option>
+                    <option value="duty">值班小鱼</option>
+                  </select>
+                </div>
+                <label>日报详细程度</label>
+                <div class="ctrl">
+                  <select id="dy-rl">
+                    <option value="full">满版（每条一两行）</option>
+                    <option value="brief">简版（只记挑了哪些）</option>
+                    <option value="off">关（只跑不写）</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="pf-savebar"><button class="pf-btn-save" id="dy-save">💾 保存设置</button> <span class="muted" id="dy-msg"></span></div>
         </div>
-        <div class="setbar"><button class="act" id="dy-save">💾 保存设置</button> <span class="muted" id="dy-msg"></span></div>
       </div>
       <div class="card" id="dy-picker" style="display:none;margin-top:14px">
         <h3>👥 从会话里挑人</h3>
@@ -859,12 +956,16 @@ async function loadBili() {
     const s = await biliApi('/status')
     nbCfg = s.config || {}
     const picked = s.autoPicked ?? s.pickedToday ?? 0
+    pfRing('nb-ring', picked, s.perDay ?? nbCfg?.perDay ?? 0)
     $('nb-badges').innerHTML = [
       nbBadge(`自动已挑 ${picked}/${s.perDay ?? nbCfg?.perDay ?? '?'}`, picked < (s.perDay ?? nbCfg?.perDay ?? 0)),
       nbBadge(s.venvReady ? '环境 ✓' : (s.installing ? '环境装中' : '环境未装'), s.venvReady),
       nbBadge(s.loggedIn ? 'B站已登录' : '未登录（后台补凭证）', s.loggedIn),
       s.running ? nbBadge('跑着…', false) : '',
     ].join('')
+    // 未登录时自动展开登录卡（凭证补录入口就在页面上）
+    $('nb-login-box').style.display = s.loggedIn ? 'none' : 'block'
+    if (!s.loggedIn && !nbKey && !$('nb-login-state').textContent) $('nb-login-state').textContent = '未登录 —— 扫码或后台补凭证'
     if (document.activeElement !== $('nb-perday')) $('nb-perday').value = nbCfg.perDay ?? 5
     $('nb-peak').checked = !!nbCfg.peakValley
     $('nb-dmmode').value = nbCfg.dmMode || 'only'
@@ -936,6 +1037,62 @@ async function loadNbFavFolders() {
   } catch { /* 拉不到就保持原样 */ }
 }
 
+// ═══ 频道驾驶舱通用件（进度环 + 抽屉页签 · 2026-11-12 重设计）═══
+const RING_C = 226.2
+function pfRing(id, picked, perDay) {
+  const ring = document.getElementById(id)
+  if (!ring) return
+  const quota = document.getElementById(id === 'nb-ring' ? 'nb-quota' : 'dy-quota')
+  const num = document.getElementById(id === 'nb-ring' ? 'nb-picked' : 'dy-picked')
+  const r = Math.max(0, Number(picked) || 0)
+  const q = Number(perDay) || 0
+  const ratio = q > 0 ? Math.min(r / q, 1) : 0
+  ring.style.strokeDashoffset = (RING_C * (1 - ratio)).toFixed(1)
+  if (num) num.textContent = String(r)
+  if (quota) quota.textContent = q > 0 ? `/ ${q} 今日` : '/ 不限'
+}
+function pfTabs(rootId) {
+  const root = document.getElementById(rootId)
+  if (!root) return
+  root.querySelectorAll('.pf-tab').forEach((t) => t.onclick = () => {
+    root.querySelectorAll('.pf-tab').forEach((x) => { x.classList.remove('on'); x.setAttribute('aria-selected', 'false') })
+    t.classList.add('on'); t.setAttribute('aria-selected', 'true')
+    root.querySelectorAll('.pf-panel').forEach((p) => { p.hidden = p.dataset.panel !== t.dataset.panel })
+  })
+}
+pfTabs('pf-bili'); pfTabs('pf-douyin')
+
+// ── B站 扫码登录（凭证补录入口 · login/start + login/poll）──
+let nbKey = null, nbPollT = null
+async function nbLoginStart() {
+  $('nb-login-box').style.display = 'block'
+  $('nb-login-state').textContent = '出码中…'
+  try {
+    const r = await biliApi('/login/start', { method: 'POST', body: '{}' })
+    if (r.qr) { $('nb-qr').src = r.qr; $('nb-login-state').textContent = '等待扫码…' }
+    else { $('nb-login-state').textContent = '没画出二维码 —— 打开这个链接登录：' + (r.url || '') }
+    nbKey = r.key || null
+    if (nbKey) { clearTimeout(nbPollT); nbPoll() }
+  } catch (e) { $('nb-login-state').textContent = '出码失败：' + e.message }
+}
+async function nbPoll() {
+  if (!nbKey) return
+  try {
+    const r = await biliApi('/login/poll', { method: 'POST', body: JSON.stringify({ key: nbKey }) })
+    if (r.state === 'ok') {
+      $('nb-login-state').textContent = '✅ 登录成功'
+      $('nb-login-box').style.display = 'none'
+      toast('B站登录成功')
+      nbKey = null; loadBili(); return
+    }
+    if (r.state === 'expired') { $('nb-login-state').textContent = '二维码过期了 —— 点「重新出码」'; return }
+    $('nb-login-state').textContent = r.state === 'scanned' ? '手机已扫，等确认…' : '等待扫码…'
+  } catch { /* 网络抖一下就再等 */ }
+  nbPollT = setTimeout(nbPoll, 3000)
+}
+$('nb-login-btn').onclick = () => { const b = $('nb-login-box'); const show = b.style.display !== 'block'; b.style.display = show ? 'block' : 'none'; if (show) nbLoginStart() }
+$('nb-login-again').onclick = nbLoginStart
+
 // ═══ 刷抖音 原生页（2026-11-07 新建）═══
 let dyCfg = null
 
@@ -951,6 +1108,7 @@ $('nb-verify').onclick = async (e) => {
 // ⭐ 页面常开时徽章 60s 自动刷新（只刷徽章，不碰正在编辑的设置）
 const nbBadgesHtml = (s) => {
   const picked = s.autoPicked ?? s.pickedToday ?? 0
+  pfRing('nb-ring', picked, s.perDay ?? nbCfg?.perDay ?? 0)
   return [
     nbBadge(`自动已挑 ${picked}/${s.perDay ?? nbCfg?.perDay ?? '?'}`, picked < (s.perDay ?? nbCfg?.perDay ?? 0)),
     nbBadge(s.venvReady ? '环境 ✓' : (s.installing ? '环境装中' : '环境未装'), s.venvReady),
@@ -958,12 +1116,15 @@ const nbBadgesHtml = (s) => {
     s.running ? nbBadge('跑着…', false) : '',
   ].join('')
 }
-const dyBadgesHtml = (s, accHtml) => [
-  nbBadge(`今日 ${s.ranToday ?? 0}/${s.perDay ?? '?'} 轮`, (s.ranToday ?? 0) < (s.perDay || 1)),
-  nbBadge(`挑了 ${s.pickedToday ?? 0} 条`, true),
-  (!s.canRun) ? nbBadge('跑着…', false) : '',
-  accHtml,
-].join('')
+const dyBadgesHtml = (s, accHtml) => {
+  pfRing('dy-ring', s.pickedToday ?? 0, s.perDay ?? 0)
+  return [
+    nbBadge(`今日 ${s.ranToday ?? 0}/${s.perDay ?? '?'} 轮`, (s.ranToday ?? 0) < (s.perDay || 1)),
+    nbBadge(`挑了 ${s.pickedToday ?? 0} 条`, true),
+    (!s.canRun) ? nbBadge('跑着…', false) : '',
+    accHtml,
+  ].join('')
+}
 setInterval(async () => {
   try {
     if ($('view-bili').style.display === 'block') $('nb-badges').innerHTML = nbBadgesHtml(await biliApi('/status'))
@@ -982,6 +1143,7 @@ async function loadDouyin() {
     const c = dyCfg
     let accHtml = ''
     try { const a = await api('/api/douyin-duty/account'); accHtml = (a.logged_in && a.account && (a.account.nick || a.account.uid)) ? nbBadge('账号 ' + (a.account.nick || a.account.uid), true) : nbBadge('未登录', false) } catch { accHtml = '' }
+    pfRing('dy-ring', s.pickedToday ?? 0, s.perDay ?? 0)
     $('dy-badges').innerHTML = [
       nbBadge(`今日 ${s.ranToday ?? 0}/${s.perDay ?? '?'} 轮`, (s.ranToday ?? 0) < (s.perDay || 1)),
       nbBadge(`挑了 ${s.pickedToday ?? 0} 条`, true),
