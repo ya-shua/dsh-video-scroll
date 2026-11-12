@@ -205,11 +205,11 @@
           <div class="pf-head-main">
             <div class="pf-name">📺 B站 <span class="pf-chip" id="nb-ver">频道</span></div>
             <div class="pf-statusline" id="nb-badges"></div>
+            <button class="pf-ghost" id="nb-login-inline" style="display:none;padding:3px 12px;font-size:12px">🔑 扫码登录</button>
           </div>
           <div class="pf-actions">
             <button class="pf-primary" id="nb-run">▶ 现在跑一轮</button>
             <button class="pf-ghost" id="nb-refresh" data-tooltip="重新读状态">↻</button>
-            <button class="pf-ghost" id="nb-login-btn" data-tooltip="扫码登录B站">🔑</button>
           </div>
         </div>
         <div class="pf-login" id="nb-login-box">
@@ -224,8 +224,7 @@
         </div>
         <div class="pf-tabs" role="tablist" aria-label="B站设置分组">
           <button class="pf-tab on" data-panel="run" role="tab" aria-selected="true" type="button">运行</button>
-          <button class="pf-tab" data-panel="send" role="tab" aria-selected="false" type="button">投递</button>
-          <button class="pf-tab" data-panel="comment" role="tab" aria-selected="false" type="button">评论</button>
+          <button class="pf-tab" data-panel="send" role="tab" aria-selected="false" type="button">投递与评论</button>
           <button class="pf-tab" data-panel="heart" role="tab" aria-selected="false" type="button">互动</button>
         </div>
         <div class="pf-panelwrap">
@@ -258,8 +257,6 @@
                 <div class="ctrl"><input type="checkbox" id="nb-dmwatch"> <span class="sub">收到私信会回一句</span></div>
               </div>
             </div>
-          </div>
-          <div class="pf-panel" data-panel="comment" hidden>
             <div class="setgroup">
               <div class="gtitle">💬 评论</div>
               <div class="formgrid">
@@ -314,10 +311,8 @@
         </div>
         <div class="pf-tabs" role="tablist" aria-label="抖音设置分组">
           <button class="pf-tab on" data-panel="run" role="tab" aria-selected="true" type="button">运行</button>
-          <button class="pf-tab" data-panel="send" role="tab" aria-selected="false" type="button">发送</button>
-          <button class="pf-tab" data-panel="comment" role="tab" aria-selected="false" type="button">评论</button>
-          <button class="pf-tab" data-panel="heart" role="tab" aria-selected="false" type="button">互动</button>
-          <button class="pf-tab" data-panel="misc" role="tab" aria-selected="false" type="button">其他</button>
+          <button class="pf-tab" data-panel="send" role="tab" aria-selected="false" type="button">发送与评论</button>
+          <button class="pf-tab" data-panel="heart" role="tab" aria-selected="false" type="button">互动与其他</button>
         </div>
         <div class="pf-panelwrap">
           <div class="pf-panel" data-panel="run">
@@ -349,8 +344,6 @@
                 <div class="full"><button class="ghost" id="dy-pick-dm" style="font-size:12px;padding:3px 10px">👥 从会话里挑人</button></div>
               </div>
             </div>
-          </div>
-          <div class="pf-panel" data-panel="comment" hidden>
             <div class="setgroup">
               <div class="gtitle">💬 评论</div>
               <div class="formgrid">
@@ -376,8 +369,6 @@
                 <div class="ctrl"><input type="checkbox" id="dy-interact-fav"> <span class="sub">挑进日报的视频收进夹子</span></div>
               </div>
             </div>
-          </div>
-          <div class="pf-panel" data-panel="misc" hidden>
             <div class="setgroup">
               <div class="gtitle">🛎 其他</div>
               <div class="formgrid">
@@ -959,9 +950,9 @@ async function loadBili() {
       nbBadge(s.loggedIn ? 'B站已登录' : '未登录（后台补凭证）', s.loggedIn),
       s.running ? nbBadge('跑着…', false) : '',
     ].join('')
-    // 未登录时自动展开登录卡（凭证补录入口就在页面上）
-    $('nb-login-box').style.display = s.loggedIn ? 'none' : 'block'
-    if (!s.loggedIn && !nbKey && !$('nb-login-state').textContent) $('nb-login-state').textContent = '未登录 —— 扫码或后台补凭证'
+    // ⭐ 2026-11-12（用户要求）：未登录不再自动弹二维码——登录卡只在点「🔑 扫码登录」时出现
+    $('nb-login-inline').style.display = s.loggedIn ? 'none' : 'inline-block'
+    if (s.loggedIn) { $('nb-login-box').style.display = 'none'; nbKey = null }
     if (document.activeElement !== $('nb-perday')) $('nb-perday').value = nbCfg.perDay ?? 5
     $('nb-peak').checked = !!nbCfg.peakValley
     $('nb-dmmode').value = nbCfg.dmMode || 'only'
@@ -1086,7 +1077,7 @@ async function nbPoll() {
   } catch { /* 网络抖一下就再等 */ }
   nbPollT = setTimeout(nbPoll, 3000)
 }
-$('nb-login-btn').onclick = () => { const b = $('nb-login-box'); const show = b.style.display !== 'block'; b.style.display = show ? 'block' : 'none'; if (show) nbLoginStart() }
+$('nb-login-inline').onclick = () => { const b = $('nb-login-box'); const show = b.style.display !== 'block'; b.style.display = show ? 'block' : 'none'; if (show) nbLoginStart() }
 $('nb-login-again').onclick = nbLoginStart
 
 // ═══ 刷抖音 原生页（2026-11-07 新建）═══
