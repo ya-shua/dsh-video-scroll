@@ -343,7 +343,7 @@ export function kickReadsDetached(kind, reason = '工作台手动') {
   const runner = path.join(KIT_DIR, 'src', 'reads-runner.mjs')
   stateWrite(`reads-${kind}.json`, { status: 'queued', queuedAt: Date.now(), reason })
   const child = spawn(process.execPath, [runner, '--kind', kind, '--reason', reason], {
-    detached: true, stdio: 'ignore', windowsHide: true,
+    detached: true, stdio: 'ignore', windowsHide: true, windowsHide: true,
     env: { ...process.env, KIT_DIR },
   })
   child.unref()
