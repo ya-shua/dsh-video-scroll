@@ -89,6 +89,22 @@
   #pf-bili { --pf:#fb7299; --pf-soft:rgba(251,114,153,.12); }
   #pf-douyin { --pf:#25f4ee; --pf-soft:rgba(37,244,238,.09); }
   #pf-reading { --pf:#f0b429; --pf-soft:rgba(240,180,41,.09); }
+  /* ═══ 平台统一框（四频道一格）═══ */
+  .pf-combo { display:none; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:14px; }
+  .pf-combo.on { display:grid; }
+  .pf-cell { border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:var(--card); display:flex; flex-direction:column; gap:8px; }
+  .pf-cell.bili { --pf:#fb7299; }
+  .pf-cell.douyin { --pf:#25f4ee; }
+  .pf-cell.tieba { --pf:#58a6ff; }
+  .pf-cell.novel { --pf:#e8a33d; }
+  .pf-cell .cb-top { display:flex; gap:10px; align-items:center; }
+  .pf-cell .cb-ring { position:relative; width:64px; height:64px; flex:0 0 auto; }
+  .pf-cell .cb-ring svg { transform:rotate(-90deg); display:block; width:64px; height:64px; }
+  .pf-cell .cb-ring .num { position:absolute; inset:0; display:grid; place-items:center; text-align:center; font-size:14px; font-weight:700; line-height:1.1; }
+  .pf-cell .cb-ring .num small { display:block; font-size:9px; color:var(--dim); font-weight:400; }
+  .pf-cell .cb-name { font-weight:700; font-size:14px; }
+  .pf-cell .pf-primary { width:100%; }
+  .pf-cell .pf-statusline { display:flex; gap:6px; flex-wrap:wrap; }
   .pf-hero { display:flex; gap:18px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
   .pf-ring { position:relative; width:86px; height:86px; flex:0 0 auto; }
   .pf-ring svg { transform:rotate(-90deg); display:block; }
@@ -191,28 +207,55 @@
     </div>
   </div>
   <main>
-    <!-- ═══ 刷B站（原生页 · 2026-11-07 拆掉原版窗口后新建；按钮按使用频率排序）═══ -->
-    <!-- ═══ B站 · 频道驾驶舱（2026-11-12 重设计：频道粉 + 进度环 + 抽屉设置）═══ -->
+    <!-- ═══ 平台统一框（四个频道的环/状态/按钮都在这一个框里）═══ -->
+    <div class="pf-combo" id="pf-combo">
+      <div class="pf-cell bili">
+        <div class="cb-top">
+          <div class="cb-ring">
+            <svg width="64" height="64" viewBox="0 0 86 86" role="img" aria-label="B站今日挑取进度">
+              <circle cx="43" cy="43" r="36" fill="none" stroke="var(--line)" stroke-width="9"/>
+              <circle id="nb-ring" cx="43" cy="43" r="36" fill="none" stroke="var(--pf)" stroke-width="9" stroke-linecap="round" stroke-dasharray="226.2" stroke-dashoffset="226.2"/>
+            </svg>
+            <div class="num"><span id="nb-picked">0</span><small id="nb-quota">/ —</small></div>
+          </div>
+          <div class="cb-name">📺 B站</div>
+        </div>
+        <div class="pf-statusline" id="nb-badges"></div>
+        <button class="pf-ghost" id="nb-login-inline" style="display:none;padding:3px 12px;font-size:12px">🔑 扫码登录</button>
+        <button class="pf-primary" id="nb-run">▶ 现在跑一轮</button>
+      </div>
+      <div class="pf-cell douyin">
+        <div class="cb-top">
+          <div class="cb-ring">
+            <svg width="64" height="64" viewBox="0 0 86 86" role="img" aria-label="抖音今日进度">
+              <circle cx="43" cy="43" r="36" fill="none" stroke="var(--line)" stroke-width="9"/>
+              <circle id="dy-ring" cx="43" cy="43" r="36" fill="none" stroke="var(--pf)" stroke-width="9" stroke-linecap="round" stroke-dasharray="226.2" stroke-dashoffset="226.2"/>
+            </svg>
+            <div class="num"><span id="dy-picked">0</span><small id="dy-quota">/ —</small></div>
+          </div>
+          <div class="cb-name">🎵 抖音</div>
+        </div>
+        <div class="pf-statusline" id="dy-badges"></div>
+        <button class="pf-primary" id="dy-run">▶ 立即跑一轮</button>
+      </div>
+      <div class="pf-cell tieba">
+        <div class="cb-top">
+          <div class="cb-name">💬 贴吧</div>
+        </div>
+        <div class="pf-statusline" id="rd-tieba-badges"></div>
+        <button class="pf-primary" id="rd-run-tieba" type="button">💬 看贴吧一轮</button>
+      </div>
+      <div class="pf-cell novel">
+        <div class="cb-top">
+          <div class="cb-name">📖 小说</div>
+        </div>
+        <div class="pf-statusline" id="rd-novel-badges"></div>
+        <button class="pf-primary" id="rd-run-novel" type="button">📖 看小说一轮</button>
+      </div>
+    </div>
+    <!-- ═══ B站 · 频道页（环/状态/按钮已上移到统一平台框）═══ -->
     <div id="view-bili" class="view" style="display:none">
       <div class="pf" id="pf-bili">
-        <div class="pf-hero">
-          <div class="pf-ring">
-            <svg width="86" height="86" viewBox="0 0 86 86" role="img" aria-label="今日挑取进度">
-              <circle cx="43" cy="43" r="36" fill="none" stroke="var(--line)" stroke-width="7"/>
-              <circle id="nb-ring" cx="43" cy="43" r="36" fill="none" stroke="var(--pf)" stroke-width="7" stroke-linecap="round" stroke-dasharray="226.2" stroke-dashoffset="226.2"/>
-            </svg>
-            <div class="num"><span id="nb-picked">0</span><small id="nb-quota">/ — 今日</small></div>
-          </div>
-          <div class="pf-head-main">
-            <div class="pf-name">📺 B站 <span class="pf-chip" id="nb-ver">频道</span></div>
-            <div class="pf-statusline" id="nb-badges"></div>
-            <button class="pf-ghost" id="nb-login-inline" style="display:none;margin-top:6px;padding:3px 12px;font-size:12px">🔑 扫码登录</button>
-          </div>
-          <div class="pf-actions">
-            <button class="pf-primary" id="nb-run">▶ 现在跑一轮</button>
-            <button class="pf-ghost" id="nb-refresh" data-tooltip="重新读状态">↻</button>
-          </div>
-        </div>
         <div class="pf-login" id="nb-login-box">
           <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
             <img id="nb-qr" alt="二维码" style="width:150px;height:150px;border-radius:10px;background:#fff;padding:6px;box-sizing:border-box">
@@ -301,23 +344,6 @@
     <!-- ═══ 抖音 · 频道驾驶舱（2026-11-12 重设计：频道青 + 进度环 + 抽屉设置）═══ -->
     <div id="view-douyin" class="view" style="display:none">
       <div class="pf" id="pf-douyin">
-        <div class="pf-hero">
-          <div class="pf-ring">
-            <svg width="86" height="86" viewBox="0 0 86 86" role="img" aria-label="今日进度">
-              <circle cx="43" cy="43" r="36" fill="none" stroke="var(--line)" stroke-width="7"/>
-              <circle id="dy-ring" cx="43" cy="43" r="36" fill="none" stroke="var(--pf)" stroke-width="7" stroke-linecap="round" stroke-dasharray="226.2" stroke-dashoffset="226.2"/>
-            </svg>
-            <div class="num"><span id="dy-picked">0</span><small id="dy-quota">/ — 今日</small></div>
-          </div>
-          <div class="pf-head-main">
-            <div class="pf-name">🎵 抖音 <span class="pf-chip" id="dy-ver">频道</span></div>
-            <div class="pf-statusline" id="dy-badges"></div>
-          </div>
-          <div class="pf-actions">
-            <button class="pf-primary" id="dy-run">▶ 立即跑一轮</button>
-            <button class="pf-ghost" id="dy-refresh" data-tooltip="重新读状态">↻</button>
-          </div>
-        </div>
         <div class="pf-tabs" role="tablist" aria-label="抖音设置分组">
           <button class="pf-tab on" data-panel="run" role="tab" aria-selected="true" type="button">运行</button>
           <button class="pf-tab" data-panel="send" role="tab" aria-selected="false" type="button">发送与评论</button>
@@ -411,16 +437,6 @@
     <!-- ═══ 贴吧 · 频道驾驶舱（2026-11-12 阅读线分离：贴吧独立成页）═══ -->
     <div id="view-tieba" class="view" style="display:none">
       <div class="pf" id="pf-tieba">
-        <div class="pf-hero">
-          <div class="pf-head-main">
-            <div class="pf-name">💬 贴吧 <span class="pf-chip" id="rd-tieba-ver">看贴吧</span></div>
-            <div class="pf-statusline" id="rd-tieba-badges"></div>
-          </div>
-          <div class="pf-actions">
-            <button class="pf-primary" id="rd-run-tieba" type="button">💬 看贴吧一轮</button>
-            <button class="pf-ghost" id="rp-tieba-refresh" type="button" data-tooltip="重新读状态">↻</button>
-          </div>
-        </div>
         <div class="card" style="margin-top:14px">
           <h3>⚙️ 贴吧设置</h3>
           <div class="setgroup">
@@ -447,16 +463,6 @@
     <!-- ═══ 小说 · 频道驾驶舱（2026-11-12 阅读线分离：小说独立成页）═══ -->
     <div id="view-novel" class="view" style="display:none">
       <div class="pf" id="pf-novel">
-        <div class="pf-hero">
-          <div class="pf-head-main">
-            <div class="pf-name">📖 小说 <span class="pf-chip" id="rd-novel-ver">追更</span></div>
-            <div class="pf-statusline" id="rd-novel-badges"></div>
-          </div>
-          <div class="pf-actions">
-            <button class="pf-primary" id="rd-run-novel" type="button">📖 看小说一轮</button>
-            <button class="pf-ghost" id="rp-novel-refresh" type="button" data-tooltip="重新读状态">↻</button>
-          </div>
-        </div>
         <div class="card" style="margin-top:14px">
           <h3>⚙️ 小说设置</h3>
           <div class="setgroup">
@@ -711,12 +717,14 @@ DIRTY_VIEWS.forEach((id) => {
 })
 
 let currentView = 'home'
+const PLATFORM_VIEWS = ['bili', 'douyin', 'tieba', 'novel']
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   if (pageDirty['view-' + currentView] && !confirm('当前页面有未保存的修改 —— 确定不保存就离开吗？')) return
   setPageDirty('view-' + currentView, false)
   document.querySelectorAll('nav button').forEach(x => x.classList.remove('on'))
   document.querySelectorAll('.view').forEach(v => v.style.display = 'none')
   b.classList.add('on'); $('view-' + b.dataset.v).style.display = 'block'
+  $('pf-combo').style.display = PLATFORM_VIEWS.includes(b.dataset.v) ? 'grid' : 'none'
   currentView = b.dataset.v
   if (b.dataset.v === 'bili') loadBili()
   if (b.dataset.v === 'douyin') loadDouyin()
