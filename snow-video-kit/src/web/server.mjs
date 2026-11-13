@@ -284,6 +284,15 @@ export function startWeb(opts = {}) {
         kitLog('阅读配置已更新（工作台）')
         return json(res, 200, { ok: true, reads })
       }
+      if (url.pathname === '/api/reads/report' && req.method === 'GET') {
+        const kind = url.searchParams.get('kind') === 'tieba' ? 'tieba' : 'novel'
+        const dir = path.join(STATE_DIR, '..', 'data', 'reads')
+        const day = new Date().toLocaleDateString('sv-SE')  // 本地日期 YYYY-MM-DD
+        const file = path.join(dir, `${day}-${kind}.md`)
+        let exists = false, text = ''
+        try { exists = existsSync(file); if (exists) text = readFileSync(file, 'utf8').slice(0, 200000) } catch { /* 读不到就给空 */ }
+        return json(res, 200, { ok: true, file: exists ? path.basename(file) : '', exists, content: text })
+      }
       if (url.pathname === '/api/reads/run' && req.method === 'POST') {
         const body = await readBody(req)
         const kind = body.kind === 'tieba' ? 'tieba' : 'novel'

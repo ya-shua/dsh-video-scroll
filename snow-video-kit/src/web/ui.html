@@ -172,18 +172,18 @@
     <nav>
       <div class="navgroup">监控</div>
       <button data-v="home" class="on">总览</button>
-      <button data-v="report">📰 日报</button>
       <button data-v="usage">💰 花费</button>
+      <button data-v="logs">📋 运行日志</button>
       <div class="navgroup">平台</div>
       <button data-v="bili">📺 B站</button>
       <button data-v="douyin">🎵 抖音</button>
-      <button data-v="reading">📖 阅读</button>
+      <button data-v="tieba">💬 贴吧</button>
+      <button data-v="novel">📖 小说</button>
       <div class="navgroup">配置</div>
       <button data-v="bridge">🔗 桥接</button>
       <button data-v="brain">🧠 大脑</button>
       <div class="navgroup">数据</div>
       <button data-v="memory">🗄️ 记忆库</button>
-      <button data-v="logs">📋 运行日志</button>
     </nav>
     <div class="railfoot">
       <div class="upd-line"><span class="dot" id="upd-dot"></span><b>v<span id="upd-ver">…</span></b><span id="upd-hint">检查中…</span></div>
@@ -286,6 +286,14 @@
             </div>
           </div>
           <div class="pf-savebar"><button class="pf-btn-save" id="nb-save">💾 保存设置</button> <span class="muted" id="nb-msg"></span></div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <h3>📰 B站日报
+            <button class="ghost" id="rp-bili-refresh" style="padding:2px 10px;font-size:11px">↻ 刷新</button>
+            <button class="ghost" id="rp-bili-out" style="padding:2px 10px;font-size:11px">📂 报告文件夹</button>
+            <button class="ghost" id="rp-bili-home" style="padding:2px 10px;font-size:11px">📂 家目录</button>
+          </h3>
+          <div class="logbox" id="rp-bili-body">…</div>
         </div>
       </div>
     </div>
@@ -391,96 +399,104 @@
         <h3>👥 从会话里挑人</h3>
         <div id="dy-picker-body"></div>
       </div>
-    </div>
-    <!-- ═══ 阅读：看小说 / 看贴吧 ═══ -->
-    <!-- ═══ 阅读 · 频道驾驶舱（2026-11-12：书卷琥珀 + 抽屉页签）═══ -->
-    <div id="view-reading" class="view" style="display:none">
-      <div class="pf" id="pf-reading">
-        <div class="pf-hero">
-          <div class="pf-head-main">
-            <div class="pf-name">📖 阅读 <span class="pf-chip">看小说 · 看贴吧</span></div>
-            <div class="pf-statusline" id="rd-badges"></div>
-          </div>
-          <div class="pf-actions">
-            <button class="pf-primary" id="rd-run-tieba" type="button">💬 看贴吧一轮</button>
-            <button class="pf-primary" id="rd-run-novel" type="button">📖 看小说一轮</button>
-            <button class="pf-ghost" id="rd-refresh" type="button" data-tooltip="重新读状态">↻</button>
-          </div>
-        </div>
-        <div class="pf-tabs" role="tablist" aria-label="阅读设置分组">
-          <button class="pf-tab on" data-panel="tieba" role="tab" aria-selected="true" type="button">💬 看贴吧</button>
-          <button class="pf-tab" data-panel="novel" role="tab" aria-selected="false" type="button">📚 看小说</button>
-        </div>
-        <div class="pf-panelwrap">
-          <div class="pf-panel" data-panel="tieba">
-            <div class="setgroup">
-              <div class="gtitle">贴吧设置</div>
-              <div class="formgrid">
-                <label>启用看贴吧</label>
-                <div class="ctrl"><input type="checkbox" id="rd-tieba-enabled"> <span class="sub">开启后值班线才会跑</span></div>
-                <label>每轮最多推几帖</label>
-                <div class="ctrl"><input type="number" id="rd-tieba-perround" min="1" max="20" style="width:110px"></div>
-                <label class="full">关注的吧（逗号分隔，如：原神,崩坏星穹铁道）</label>
-                <div class="full"><input class="wide" id="rd-tieba-forums" style="margin:0"></div>
-                <div class="full"><button class="ghost" id="rd-tieba-login" type="button">🔑 贴吧登录（第一次需要）</button>
-                  <span class="sub">登录一次 cookie 就记住，之后自动读取</span></div>
-              </div>
-            </div>
-          </div>
-          <div class="pf-panel" data-panel="novel" hidden>
-            <div class="setgroup">
-              <div class="gtitle">小说设置</div>
-              <div class="formgrid">
-                <label>启用看小说</label>
-                <div class="ctrl"><input type="checkbox" id="rd-novel-enabled"> <span class="sub">开启后值班线才会跑</span></div>
-                <label class="full">追更书单（书名 + 目录页链接，可加多本）</label>
-                <div class="full" id="rd-novels" style="display:flex;flex-direction:column;gap:6px"></div>
-                <div class="full"><button class="ghost" id="rd-novel-add" type="button" style="font-size:12px;padding:3px 10px">＋ 加一本书</button></div>
-                <div class="full"><button class="ghost" id="rd-novel-login" type="button">🔑 番茄登录（看需要）</button></div>
-              </div>
-            </div>
-            <div class="setgroup">
-              <div class="gtitle">👩‍👦 家长约束 <span class="muted" style="font-size:12px;font-weight:400">默认就是保护值，可调</span></div>
-              <div class="formgrid">
-                <label>一次最多读几章</label>
-                <div class="ctrl"><input type="number" id="rd-nv-session" min="1" max="20" style="width:100px"></div>
-                <label>一天最多读几章</label>
-                <div class="ctrl"><input type="number" id="rd-nv-day" min="1" max="50" style="width:100px"></div>
-                <label>熄灯时段（这段时间不许看小说）</label>
-                <div class="ctrl" style="display:flex;gap:8px;align-items:center">
-                  <input type="time" id="rd-nv-curfew-start" style="width:110px"> <span class="sub">到</span>
-                  <input type="time" id="rd-nv-curfew-end" style="width:110px">
-                </div>
-                <span class="sub full">付费章节不绕（只读到试读片段，进度停在那一章）；这些约束她绕不过去</span>
-              </div>
-            </div>
-            <div class="setgroup">
-              <div class="gtitle">📚 她的书架 <span class="muted" style="font-size:12px;font-weight:400">在读什么、读到哪、有没有新章</span></div>
-              <div id="rd-shelf" style="display:flex;flex-direction:column;gap:8px"><span class="muted">刷新后显示</span></div>
-            </div>
-          </div>
-          <div class="pf-savebar"><button class="pf-btn-save" id="rd-save" type="button">💾 保存设置</button> <span class="muted" id="rd-msg"></span></div>
-        </div>
-      </div>
-    </div>
-    <!-- ═══ 日报（B站+抖音汇总，一页查看，不再弹窗）═══ -->
-    <div id="view-report" class="view" style="display:none">
-      <h2>📰 日报</h2>
-      <div class="card" style="margin-bottom:14px">
-        <h3>📺 B站日报
-          <button class="ghost" id="rp-bili-refresh" style="padding:2px 10px;font-size:11px">↻ 刷新</button>
-          <button class="ghost" id="rp-bili-out" style="padding:2px 10px;font-size:11px">📂 报告文件夹</button>
-          <button class="ghost" id="rp-bili-home" style="padding:2px 10px;font-size:11px">📂 家目录</button>
-        </h3>
-        <div class="logbox" id="rp-bili-body">…</div>
-      </div>
-      <div class="card">
-        <h3>🎵 抖音日报
+      <div class="card" style="margin-top:14px">
+        <h3>📰 抖音日报
           <button class="ghost" id="rp-dy-refresh" style="padding:2px 10px;font-size:11px">↻ 刷新</button>
         </h3>
         <div class="logbox" id="rp-dy-body">…</div>
       </div>
     </div>
+    <!-- ═══ 阅读：看小说 / 看贴吧 ═══ -->
+    <!-- ═══ 阅读 · 频道驾驶舱（2026-11-12：书卷琥珀 + 抽屉页签）═══ -->
+    <!-- ═══ 贴吧 · 频道驾驶舱（2026-11-12 阅读线分离：贴吧独立成页）═══ -->
+    <div id="view-tieba" class="view" style="display:none">
+      <div class="pf" id="pf-tieba">
+        <div class="pf-hero">
+          <div class="pf-head-main">
+            <div class="pf-name">💬 贴吧 <span class="pf-chip" id="rd-tieba-ver">看贴吧</span></div>
+            <div class="pf-statusline" id="rd-tieba-badges"></div>
+          </div>
+          <div class="pf-actions">
+            <button class="pf-primary" id="rd-run-tieba" type="button">💬 看贴吧一轮</button>
+            <button class="pf-ghost" id="rp-tieba-refresh" type="button" data-tooltip="重新读状态">↻</button>
+          </div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <h3>⚙️ 贴吧设置</h3>
+          <div class="setgroup">
+            <div class="formgrid">
+              <label>启用看贴吧</label>
+              <div class="ctrl"><input type="checkbox" id="rd-tieba-enabled"> <span class="sub">开启后值班线才会跑</span></div>
+              <label>每轮最多推几帖</label>
+              <div class="ctrl"><input type="number" id="rd-tieba-perround" min="1" max="20" style="width:110px"></div>
+              <label class="full">关注的吧（逗号分隔，如：原神,崩坏星穹铁道）</label>
+              <div class="full"><input class="wide" id="rd-tieba-forums" style="margin:0"></div>
+              <div class="full"><button class="ghost" id="rd-tieba-login" type="button">🔑 贴吧登录（第一次需要）</button>
+                <span class="sub">登录一次 cookie 就记住，之后自动读取</span></div>
+              <div class="pf-savebar"><button class="pf-btn-save" id="rd-save-tieba" type="button">💾 保存设置</button> <span class="muted" id="rd-msg-tieba"></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <h3>📰 贴吧阅读记录</h3>
+          <div class="logbox" id="tieba-report-body">…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ 小说 · 频道驾驶舱（2026-11-12 阅读线分离：小说独立成页）═══ -->
+    <div id="view-novel" class="view" style="display:none">
+      <div class="pf" id="pf-novel">
+        <div class="pf-hero">
+          <div class="pf-head-main">
+            <div class="pf-name">📖 小说 <span class="pf-chip" id="rd-novel-ver">追更</span></div>
+            <div class="pf-statusline" id="rd-novel-badges"></div>
+          </div>
+          <div class="pf-actions">
+            <button class="pf-primary" id="rd-run-novel" type="button">📖 看小说一轮</button>
+            <button class="pf-ghost" id="rp-novel-refresh" type="button" data-tooltip="重新读状态">↻</button>
+          </div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <h3>⚙️ 小说设置</h3>
+          <div class="setgroup">
+            <div class="formgrid">
+              <label>启用看小说</label>
+              <div class="ctrl"><input type="checkbox" id="rd-novel-enabled"> <span class="sub">开启后值班线才会跑</span></div>
+              <label class="full">追更书单（书名 + 目录页链接，可加多本）</label>
+              <div class="full" id="rd-novels" style="display:flex;flex-direction:column;gap:6px"></div>
+              <div class="full"><button class="ghost" id="rd-novel-add" type="button" style="font-size:12px;padding:3px 10px">＋ 加一本书</button></div>
+              <div class="full"><button class="ghost" id="rd-novel-login" type="button">🔑 番茄登录（看需要）</button></div>
+            </div>
+          </div>
+          <div class="setgroup">
+            <div class="gtitle">👩‍👦 家长约束 <span class="muted" style="font-size:12px;font-weight:400">默认就是保护值，可调</span></div>
+            <div class="formgrid">
+              <label>一次最多读几章</label>
+              <div class="ctrl"><input type="number" id="rd-nv-session" min="1" max="20" style="width:100px"></div>
+              <label>一天最多读几章</label>
+              <div class="ctrl"><input type="number" id="rd-nv-day" min="1" max="50" style="width:100px"></div>
+              <label>熄灯时段（这段时间不许看小说）</label>
+              <div class="ctrl" style="display:flex;gap:8px;align-items:center">
+                <input type="time" id="rd-nv-curfew-start" style="width:110px"> <span class="sub">到</span>
+                <input type="time" id="rd-nv-curfew-end" style="width:110px">
+              </div>
+              <span class="sub full">付费章节不绕（只读到试读片段，进度停在那一章）；这些约束她绕不过去</span>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <h3>📚 她的书架 <span class="muted" style="font-size:12px;font-weight:400">在读什么、读到哪、有没有新章</span></h3>
+          <div id="rd-shelf" style="display:flex;flex-direction:column;gap:8px"><span class="muted">刷新后显示</span></div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <h3>📰 小说阅读记录</h3>
+          <div class="logbox" id="novel-report-body">…</div>
+        </div>
+        <div class="pf-savebar"><button class="pf-btn-save" id="rd-save-novel" type="button">💾 保存设置</button> <span class="muted" id="rd-msg-novel"></span></div>
+      </div>
+    </div>
+    <!-- ═══ 日报已拆分：B站日报在「📺 B站」页、抖音日报在「🎵 抖音」页 ═══ -->
     <!-- ═══ 桥接（海螺人设/记忆 + 自主权限 + 视听；她经 MCP 自主刷视频的总配置）═══ -->
     <div id="view-bridge" class="view" style="display:none">
       <h2>🔗 桥接</h2>
@@ -678,8 +694,8 @@ const api = (p, opt = {}) => fetch(p, { ...opt, headers: { 'content-type': 'appl
 
 // ⭐ 2026-11-12（用户要求）：设置改动未保存时切换页面，先提醒
 const pageDirty = {}
-const DIRTY_VIEWS = ['view-bili', 'view-douyin', 'view-reading']
-const SAVE_BTN_OF = { 'view-bili': 'nb-save', 'view-douyin': 'dy-save', 'view-reading': 'rd-save' }
+const DIRTY_VIEWS = ['view-bili', 'view-douyin', 'view-tieba', 'view-novel']
+const SAVE_BTN_OF = { 'view-bili': 'nb-save', 'view-douyin': 'dy-save', 'view-tieba': 'rd-save-tieba', 'view-novel': 'rd-save-novel' }
 function setPageDirty(viewId, on) {
   pageDirty[viewId] = on
   const btn = document.getElementById(SAVE_BTN_OF[viewId])
@@ -703,8 +719,8 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   currentView = b.dataset.v
   if (b.dataset.v === 'bili') loadBili()
   if (b.dataset.v === 'douyin') loadDouyin()
-  if (b.dataset.v === 'reading') loadReads()
-  if (b.dataset.v === 'report') loadReportPage()
+  if (b.dataset.v === 'tieba') loadTieba()
+  if (b.dataset.v === 'novel') loadNovel()
   if (b.dataset.v === 'bridge') loadBridge()
   if (b.dataset.v === 'logs') loadLogs()
   if (b.dataset.v === 'memory') loadMemory()
@@ -759,18 +775,19 @@ async function loadFeed() {
 async function loadLogs() { try { const l = await api('/api/logs'); $('logbox').textContent = l.lines.join('\n') || '暂无日志' } catch (e) { $('logbox').textContent = '读取失败：' + e.message } }
 
 // 日报页：两个平台一起加载，直接写进页面内的 logbox（不再弹窗）
-async function loadReportPage() {
-  const fill = async (kind, bodyId) => {
-    const box = $(bodyId)
-    try {
-      const r = await api('/api/report?kind=' + kind)
-      box.textContent = r.file ? '【' + r.file + '】\n\n' + (r.content || '') : '今天还没有报告 —— 跑一轮之后就有了'
-    } catch (e) { box.textContent = '读取失败：' + e.message }
-  }
-  await Promise.all([fill('bili', 'rp-bili-body'), fill('douyin', 'rp-dy-body')])
+const fillReport = async (kind, bodyId) => {
+  const box = $(bodyId)
+  try {
+    const r = await api('/api/report?kind=' + kind)
+    box.textContent = r.file ? '【' + r.file + '】\n\n' + (r.content || '') : '今天还没有报告 —— 跑一轮之后就有了'
+  } catch (e) { box.textContent = '读取失败：' + e.message }
 }
-$('rp-bili-refresh').onclick = loadReportPage
-$('rp-dy-refresh').onclick = loadReportPage
+const loadBiliReport = () => fillReport('bili', 'rp-bili-body')
+const loadDyReport = () => fillReport('douyin', 'rp-dy-body')
+const loadTiebaReport = () => fillReport('tieba', 'tieba-report-body')
+const loadNovelReport = () => fillReport('novel', 'novel-report-body')
+$('rp-tieba-refresh').onclick = loadTiebaReport
+$('rp-novel-refresh').onclick = loadNovelReport
 
 // ═══ 桥接页：海螺连接 + 自主权限 + 视听 ═══
 async function loadBridge() {
@@ -1069,7 +1086,7 @@ function pfTabs(rootId) {
     root.querySelectorAll('.pf-panel').forEach((p) => { p.hidden = p.dataset.panel !== t.dataset.panel })
   })
 }
-pfTabs('pf-bili'); pfTabs('pf-douyin'); pfTabs('pf-reading')
+pfTabs('pf-bili'); pfTabs('pf-douyin'); pfTabs('pf-tieba'); pfTabs('pf-novel')
 
 // ── B站 扫码登录（凭证补录入口 · login/start + login/poll）──
 let nbKey = null, nbPollT = null
@@ -1345,19 +1362,27 @@ function rdBadge(label, st) {
   const [txt, color] = map[st.status] || ['空闲', 'var(--dim)']
   return `<span class="pill" style="color:${color}">${label}：${txt}${st.reason ? '（' + escAttr(st.reason) + '）' : ''}</span>`
 }
-async function loadReads() {
+async function loadTieba() {
   try {
     const d = await api('/api/reads')
     const r = d.reads || {}
     $('rd-tieba-enabled').checked = !!r.tiebaEnabled
-    $('rd-novel-enabled').checked = !!r.novelEnabled
     $('rd-tieba-perround').value = r.tiebaPerRound || 3
     $('rd-tieba-forums').value = (r.tiebaForums || []).join(',')
+    $('rd-tieba-badges').innerHTML = rdBadge('贴吧', d.tiebaState || {})
+    loadTiebaReport()
+  } catch (e) { toast('加载贴吧配置失败：' + e.message) }
+}
+async function loadNovel() {
+  try {
+    const d = await api('/api/reads')
+    const r = d.reads || {}
+    $('rd-novel-enabled').checked = !!r.novelEnabled
     $('rd-novels').innerHTML = ''
     const books = r.novels || []
     books.forEach((b) => $('rd-novels').appendChild(rdNovelRow(b)))
     if (!books.length) $('rd-novels').appendChild(rdNovelRow())
-    $('rd-badges').innerHTML = rdBadge('贴吧', d.tiebaState || {}) + rdBadge('小说', d.novelState || {})
+    $('rd-novel-badges').innerHTML = rdBadge('小说', d.novelState || {})
     // ⭐ 2026-11-11：书架 + 家长约束
     const nl = r.novel || {}
     if (document.activeElement !== $('rd-nv-session')) $('rd-nv-session').value = nl.chaptersPerSession ?? 3
@@ -1372,17 +1397,27 @@ async function loadReads() {
         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${b.有新章 ? 'var(--warn)' : 'var(--dim)'};font-size:12px">最新：${escAttr(b.最新 || '—')}${b.有新章 ? ' ⭐有新章' : '（已追平）'}</span>
         <span class="muted" style="font-size:12px">${escAttr(b.最后阅读)}</span>
       </div>`).join('') : '<span class="muted">书架是空的 —— 在下方追更书单里加书</span>'
-  } catch (e) { toast('加载阅读配置失败：' + e.message) }
+    loadNovelReport()
+  } catch (e) { toast('加载小说配置失败：' + e.message) }
 }
 $('rd-novel-add').onclick = () => $('rd-novels').appendChild(rdNovelRow())
-$('rd-save').onclick = async () => {
-  const msg = $('rd-msg'); msg.textContent = '保存中…'
+$('rd-save-tieba').onclick = async () => {
+  const msg = $('rd-msg-tieba'); msg.textContent = '保存中…'
   try {
     const body = {
       tiebaEnabled: $('rd-tieba-enabled').checked,
-      novelEnabled: $('rd-novel-enabled').checked,
       tiebaPerRound: $('rd-tieba-perround').value,
       tiebaForums: $('rd-tieba-forums').value.split(','),
+    }
+    const r = await api('/api/reads', { method: 'POST', body: JSON.stringify(body) })
+    if (r.ok) { msg.textContent = '✓ 已保存 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }); toast('贴吧设置已保存'); loadTieba() }
+  } catch (err) { msg.textContent = '✗ ' + err.message }
+}
+$('rd-save-novel').onclick = async () => {
+  const msg = $('rd-msg-novel'); msg.textContent = '保存中…'
+  try {
+    const body = {
+      novelEnabled: $('rd-novel-enabled').checked,
       novels: rdCollectNovels(),
       novel: {
         chaptersPerSession: $('rd-nv-session').value,
@@ -1392,7 +1427,7 @@ $('rd-save').onclick = async () => {
       },
     }
     const r = await api('/api/reads', { method: 'POST', body: JSON.stringify(body) })
-    if (r.ok) { msg.textContent = '✓ 已保存 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }); toast('阅读设置已保存'); setPageDirty('view-reading', false); loadReads() }
+    if (r.ok) { msg.textContent = '✓ 已保存 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }); toast('小说设置已保存'); setPageDirty('view-novel', false); loadNovel() }
   } catch (err) { msg.textContent = '✗ ' + err.message }
 }
 async function rdRun(kind, btn) {
@@ -1400,7 +1435,7 @@ async function rdRun(kind, btn) {
   try {
     const r = await api('/api/reads/run', { method: 'POST', body: JSON.stringify({ kind }) })
     toast(r.ok ? r.detail : (r.reason || r.error))
-    setTimeout(loadReads, 1500)
+    setTimeout(kind === 'novel' ? loadNovel : loadTieba, 1500)
   } catch (e) { toast(e.message) }
   btn.disabled = false
 }
