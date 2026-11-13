@@ -12,7 +12,7 @@ import { chatWithTools } from './brain.mjs'
 import { kitLog, todayKey } from './config.js'
 import * as videomem from './videomem.mjs'
 import { buildContext, bridgePromptBlock, stopRing } from './conch-bridge.mjs'
-import { describeFrames, transcribeBuffer, deepEnabled, deepQuota } from './eyes.mjs'
+import { describeFrames, transcribeBuffer, mediaLevel, deepQuota } from './eyes.mjs'
 
 export function biliStatus(cfg, resolve) {
   const { home, python, mcpServer } = resolve
@@ -105,7 +105,7 @@ async function fetchBiliAudio(cfg, resolve, bvid) {
   }
 }
 
-async function lookDeepBili(cfg, resolve, mcp, args, budget) {
+async function lookDeepBili(cfg, resolve, mcp, args, budget, audioOn) {
   const bvid = String(args?.bvid || '').trim()
   if (!/^BV[0-9A-Za-z]{10}$/.test(bvid)) return 'bvid 不对（要 BV 开头的 12 位）'
   if (budget.used >= budget.max) return `本轮深审额度用完了（最多 ${budget.max} 条）——这条按标题/字幕/评论判断。`
@@ -126,25 +126,30 @@ async function lookDeepBili(cfg, resolve, mcp, args, budget) {
     parts.push('画面没看成：' + String(e?.message || e).slice(0, 100))
   }
   // ② 声音：a) 有字幕就读字幕（免费）；b) 没字幕才把音轨拉下来交给留影转文字
+  //    ⭐ 2026-11-12 三模式：混合模式不读声音（省时省资源），视觉模式才走完整链路
   let heard = ''
-  try {
-    const s = await mcp.call('bili_subtitle', { bvid }, 120000)
-    const t = String(s.text || '').replace(/\s+/g, ' ').trim()
-    if (!s.isError && t.length > 30 && !/没有字幕|无字幕|字幕获取失败|未找到/.test(t)) {
-      heard = '声音（字幕）：' + t.slice(0, 600)
+  if (audioOn) {
+    try {
+      const s = await mcp.call('bili_subtitle', { bvid }, 120000)
+      const t = String(s.text || '').replace(/\s+/g, ' ').trim()
+      if (!s.isError && t.length > 30 && !/没有字幕|无字幕|字幕获取失败|未找到/.test(t)) {
+        heard = '声音（字幕）：' + t.slice(0, 600)
+      }
+    } catch { /* 走下面这条路 */ }
+    if (!heard) {
+      kitLog(`深审：${bvid} 没字幕 → 拉音轨走 ASR`)
+      const au = await fetchBiliAudio(cfg, resolve, bvid)
+      if (!au.ok) {
+        heard = `声音：没字幕，音轨也拉不下来（${au.error}）——如实写「没听到」，别猜。`
+      } else {
+        const tr = await transcribeBuffer(cfg, au.buffer)
+        heard = (tr.ok && String(tr.text || '').trim())
+          ? '声音（没字幕，音轨转的文字）：' + String(tr.text).replace(/\s+/g, ' ').slice(0, 600)
+          : `声音：没字幕，转文字也失败了（${tr.error || '转出来是空的'}）——如实写「没听到」。`
+      }
     }
-  } catch { /* 走下面这条路 */ }
-  if (!heard) {
-    kitLog(`深审：${bvid} 没字幕 → 拉音轨走 ASR`)
-    const au = await fetchBiliAudio(cfg, resolve, bvid)
-    if (!au.ok) {
-      heard = `声音：没字幕，音轨也拉不下来（${au.error}）——如实写「没听到」，别猜。`
-    } else {
-      const tr = await transcribeBuffer(cfg, au.buffer)
-      heard = (tr.ok && String(tr.text || '').trim())
-        ? '声音（没字幕，音轨转的文字）：' + String(tr.text).replace(/\s+/g, ' ').slice(0, 600)
-        : `声音：没字幕，转文字也失败了（${tr.error || '转出来是空的'}）——如实写「没听到」。`
-    }
+  } else {
+    heard = '声音：混合模式不读（按画面和文案判断）'
   }
   parts.push(heard)
   return parts.join('\n')
@@ -170,7 +175,10 @@ export async function runRound(cfg, resolve, { reason = 'manual' } = {}) {
   const bridge = await buildContext(cfg, { cues: ['刷视频', 'B站', ...((bcfg.keywords || []).slice(0, 3))] })
   const bridgeBlock = bridgePromptBlock(bridge, { kind: 'bili' })
 
-  const deep = deepEnabled(cfg) && deepQuota(cfg, 'bili') > 0
+  // ⭐ 2026-11-12 三模式：text=只看文本 / hybrid=文本+画面帧 / visual=全套（画面+声音）
+  const level = mediaLevel(cfg)
+  const deep = level >= 1 && deepQuota(cfg, 'bili') > 0
+  const audioOn = level >= 2
   const deepBudget = { used: 0, max: deepQuota(cfg, 'bili') }
 
   const system = [
@@ -182,10 +190,13 @@ export async function runRound(cfg, resolve, { reason = 'manual' } = {}) {
     `排除词：${exclude}`,
     memBlock,
     deep
-      ? `─── 看/听（深模式已开：本轮最多仔细看 ${deepBudget.max} 条）───\n`
-        + '对**演示类、没字幕、或你打算断言画面**的视频，先调 `look_deep(bvid)`：它抽几帧画面让视觉模型讲给你听；声音这块有字幕就读字幕，**没字幕它会把音轨拉下来转成文字**（等于真听到）。'
-        + '把看到的、听到的写进「为什么值得」，比复述标题有说服力。额度用完就按标题/字幕/评论判断。'
-      : '─── 看/听（当前是快模式）───\n本轮只看文案、字幕、评论；**不许在日报里断言画面里有什么**（没看就说没看）。',
+      ? `─── 看/听（${audioOn ? '视觉模式：画面+声音全开' : '混合模式：只看画面，不听声音'}；本轮最多仔细看 ${deepBudget.max} 条）───\n`
+        + '对**演示类、没字幕、或你打算断言画面**的视频，先调 `look_deep(bvid)`：它抽几帧画面让视觉模型讲给你听；'
+        + (audioOn
+          ? '声音这块有字幕就读字幕，**没字幕它会把音轨拉下来转成文字**（等于真听到）。'
+          : '**混合模式不读声音**——没字幕就按画面和文案判断，别编音频内容。')
+        + '把看到的写进「为什么值得」，比复述标题有说服力。额度用完就按标题/字幕/评论判断。'
+      : '─── 看/听（当前是文本总结模式）───\n本轮只看文案、字幕、评论；**不许在日报里断言画面里有什么**（没看就说没看）。',
     '报告与判重一律通过 duty_report_append / duty_seen_append / duty_digest_append 三个固定路径工具落盘，不要自己发明路径。',
     '本轮由本工作台驱动：所有能力都来自挂载的工具；完成后用一段话总结本轮（挑了什么、为什么）。',
   ].filter(Boolean).join('\n')
@@ -198,7 +209,7 @@ export async function runRound(cfg, resolve, { reason = 'manual' } = {}) {
       [{ role: 'system', content: system }, { role: 'user', content: `开始本轮值班（原因：${reason}）。按章程执行。` }],
       tools,
       async ({ name, args }) => {
-        if (name === 'look_deep') return await lookDeepBili(cfg, resolve, mcp, args, deepBudget)
+        if (name === 'look_deep') return await lookDeepBili(cfg, resolve, mcp, args, deepBudget, audioOn)
         const r = await mcp.call(name, args, 240000)
         if (r.isError) throw new Error(r.text.slice(0, 500))
         return r.text

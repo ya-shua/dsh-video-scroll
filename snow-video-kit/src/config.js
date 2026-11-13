@@ -92,7 +92,7 @@ const DEFAULTS = {
   ring: { mcpServer: '', dbPath: '' },
   // ⭐ 看画面 / 听声音（借留影的模型）：fast = 只看文字；deep = 抽帧 + 听声
   media: {
-    mode: 'fast',
+    mode: 'text',                                 // ⭐ text=文本总结 | hybrid=混合（文本+画面帧） | visual=视觉（全套）
     deepPerRound: { bili: 2, douyin: 1 },         // 每轮最多深审几条
     frames: 3,                                    // 深审抽几帧
     audio: 'auto',                                // auto（没字幕才听）| always | off

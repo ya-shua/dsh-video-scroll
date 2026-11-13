@@ -150,9 +150,13 @@ export async function downloadMedia(url2, { referer = '', ua = '', maxBytes = 20
   } finally { clearTimeout(timer) }
 }
 
-/** 深审总开关：fast 时所有调用方都不该进来 */
-export function deepEnabled(cfg) {
-  return String(cfg.media?.mode || 'fast') === 'deep'
+/** ⭐ 2026-11-12 三模式等级（用户要求）：text(0)=只看文本 / hybrid(1)=文本+画面帧 / visual(2)=全套（画面+声音）
+ *  旧值兼容：fast→text、deep→visual（未知值按 text 处理，不会误开视觉） */
+export function mediaLevel(cfg) {
+  const m = String(cfg.media?.mode || 'text')
+  if (m === 'hybrid') return 1
+  if (m === 'visual' || m === 'deep') return 2
+  return 0
 }
 
 /** 每轮还能深审几条（调用方自己记账，这里只给上限） */

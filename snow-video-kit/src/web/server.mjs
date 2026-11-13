@@ -368,7 +368,10 @@ export function startWeb(opts = {}) {
       if (url.pathname === '/api/media' && req.method === 'POST') {
         const body = await readBody(req)
         const cur = loadConfig().media || {}
-        const mode = body.mode === 'deep' ? 'deep' : 'fast'
+        // ⭐ 三模式钳制：text / hybrid / visual（旧值 fast→text、deep→visual 兼容）
+        const MODES = ['text', 'hybrid', 'visual']
+        const RAW = String(body.mode || '')
+        const mode = MODES.includes(RAW) ? RAW : (RAW === 'fast' ? 'text' : RAW === 'deep' ? 'visual' : (cur.mode === 'hybrid' ? 'hybrid' : cur.mode === 'visual' ? 'visual' : 'text'))
         const biliN = Math.max(0, Math.min(5, Number(body.biliDeep) || 0))
         const dyN = Math.max(0, Math.min(5, Number(body.douyinDeep) || 0))
         const frames = Math.max(1, Math.min(6, Number(body.frames) || cur.frames || 3))

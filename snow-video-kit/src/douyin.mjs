@@ -11,7 +11,7 @@ import { chat, chatWithTools } from './brain.mjs'
 import { kitLog, todayKey } from './config.js'
 import * as videomem from './videomem.mjs'
 import { buildContext, bridgePromptBlock, stopRing } from './conch-bridge.mjs'
-import { downloadMedia, describeVideoBuffer, deepEnabled, deepQuota } from './eyes.mjs'
+import { downloadMedia, describeVideoBuffer, mediaLevel, deepQuota } from './eyes.mjs'
 
 export function douyinStatus(cfg, resolve) {
   const { home, python } = resolve
@@ -102,7 +102,8 @@ async function lookDeepDouyin(args) {
   if (durS > 20 * 60) return `这条 ${durS} 秒太长（>20 分钟），不下整条；按文案+评论判断。`
   try {
     const buf = await downloadMedia(info.url, { referer: 'https://www.douyin.com/' })
-    const wantAudio = String(cfg.media?.audio || 'auto') !== 'off'
+    // ⭐ 三模式：visual 才听声音，hybrid 只看画面
+    const wantAudio = mediaLevel(cfg) >= 2 && String(cfg.media?.audio || 'auto') !== 'off'
     const d = await describeVideoBuffer(cfg, buf, {
       frames: cfg.media?.frames || 3, audio: wantAudio, hint: String(info.desc || '').slice(0, 60),
     })
@@ -169,7 +170,8 @@ export async function runRound(cfg, resolve, { reason = 'manual' } = {}) {
   const remain = Math.max(0, cfg.douyin.perDay - st.todayCount)
   videomem.configureMemory(cfg.memory?.dbPath)
   const memBlock = videomem.memoryBlockForPrompt({ platform: 'douyin' })
-  const deep = deepEnabled(cfg) && deepQuota(cfg, 'douyin') > 0
+  const level = mediaLevel(cfg)
+  const deep = level >= 1 && deepQuota(cfg, 'douyin') > 0   // hybrid 起：look_deep 可用（抽帧）；visual 才加声音
   WATCH_CFG = cfg; WATCH_RESOLVE = resolve; WATCH_BUDGET = { used: 0, max: deepQuota(cfg, 'douyin') }
   const system = [
     charter,
