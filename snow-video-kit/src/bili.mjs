@@ -117,7 +117,7 @@ async function lookDeepBili(cfg, resolve, mcp, args, budget, audioOn) {
     const num = Math.max(1, Math.min(6, cfg.media?.frames || 3))
     const r = await mcp.call('bili_frames', { bvid, num }, 180000)
     if (r.images?.length) {
-      const d = await describeFrames(cfg, { frames: r.images, hint: String(args?.why || '').slice(0, 80), label: '视频' })
+      const d = await describeFrames(cfg, { frames: r.images, hint: String(args?.why || '').slice(0, 80), label: '视频', key: 'bili:' + bvid })
       parts.push(d.ok ? `画面（看了 ${d.used} 帧）：${d.desc}` : `画面没看成：${d.error}`)
     } else {
       parts.push('画面没看成（这条没有故事板图）')

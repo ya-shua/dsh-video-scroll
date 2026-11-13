@@ -105,7 +105,7 @@ async function lookDeepDouyin(args) {
     // ⭐ 三模式：visual 才听声音，hybrid 只看画面
     const wantAudio = mediaLevel(cfg) >= 2 && String(cfg.media?.audio || 'auto') !== 'off'
     const d = await describeVideoBuffer(cfg, buf, {
-      frames: cfg.media?.frames || 3, audio: wantAudio, hint: String(info.desc || '').slice(0, 60),
+      frames: cfg.media?.frames || 3, audio: wantAudio, hint: String(info.desc || '').slice(0, 60), key: 'douyin:' + vid,
     })
     if (!d.ok) return '看/听失败了（' + d.error + '）——如实写"画面没看成"，别编。'
     return `【视频 ${vid} · 真看了】\n${d.desc}`
